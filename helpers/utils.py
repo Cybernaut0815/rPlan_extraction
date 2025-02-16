@@ -66,7 +66,6 @@ def resize_plan(img, X, Y):
     second_channel = img[:,:,2]
     
     values_ch1 = room_type_channel[Y.astype(int), X.astype(int)]
-
     def check_neighbors(room_type_channel, start_y, start_x):
         from collections import deque
         queue = deque([(start_y, start_x)])
@@ -121,3 +120,20 @@ def resize_plan(img, X, Y):
                 processed_values[i,j,2] = 0  # mask value
     
     return processed_values
+
+
+def load_image_paths(path):
+    files = sorted(os.listdir(path), key=lambda x: int(''.join(filter(str.isdigit, x.split('_')[-1].split('.')[0]))))
+    return [f for f in files if f.endswith(('.jpg', '.png', '.jpeg'))]
+
+def load_image(path):
+    return Image.open(path)
+
+
+
+
+
+    
+
+
+

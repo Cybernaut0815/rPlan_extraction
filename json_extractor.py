@@ -4,17 +4,19 @@ import json
 import os
 from PIL import Image
 import numpy as np
-import cv2
+import cv2 
 import matplotlib.pyplot as plt
 from matplotlib import pyplot as plt
 
 from helpers.utils import resize_plan
 from helpers.llm_utils import get_descriptions
 
+from tqdm import tqdm
+
 # %%
 
 DATA_PATH = r"G:\Datasets\rPlan\dataset\dataset\floorplan_dataset"
-OUT_PATH = r"G:\Datasets\rPlan\dataset\dataset\floorplan_dataset_processed"
+OUT_PATH = r"G:\Datasets\rPlan\dataset\dataset\floorplan_dataset_processed_16x16"
 
 if not os.path.exists(OUT_PATH):
     os.makedirs(OUT_PATH)
@@ -206,4 +208,34 @@ pprint(descriptions)
 
 
 # %%
+
+
+selected_files = files[:10]
+
+for file in tqdm(selected_files):
+    img = Image.open(os.path.join(DATA_PATH, file))
+    arrayImg = np.array(img)
+    processed_values = resize_plan(arrayImg, X, Y)
+    resized_values = cv2.resize(processed_values, (16, 16), interpolation=cv2.INTER_NEAREST)
+    
+    #save the resized values
+    cv2.imwrite(os.path.join(OUT_PATH, file), resized_values)
+
+    room_types_count = get_room_types_count(resized_values, funtions_dict)
+
+
+    data = {
+        "room_counts": room_types_count,
+        "dimensions": [resized_values.shape[0], resized_values.shape[1]],
+        "functions": resized_values[:,:,0].tolist(),
+        "mask": resized_values[:,:,2].tolist()
+    }
+
+    descriptions = get_descriptions(data, llm, system_message, query)
+    data["descriptions"] = descriptions
+
+    #save the data
+    with open(os.path.join(OUT_PATH, file.split('.')[0] + ".json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+
 
