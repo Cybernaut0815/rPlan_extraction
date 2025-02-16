@@ -10,7 +10,6 @@ from langchain.callbacks import get_openai_callback
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 
-
 def get_descriptions(data, llm, system_message, query, description_number=3):
     
     messages = [

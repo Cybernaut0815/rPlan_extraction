@@ -75,7 +75,7 @@ class Floorplan:
     
     def room_types_count(self):
         count_dict = {}
-        for key, value in self.info.types.items():
+        for key, value in self.info.all_types.items():
             room_values = np.where(self.image[:,:,0] == value)    
             # Get the values from channel 1 where room_type matches
             masked_values = self.image[:,:,1][room_values]
@@ -101,7 +101,7 @@ class Floorplan:
     
     def interior_doors_outlines(self):
         key = "interior door"
-        value = self.info.types[key]
+        value = self.info.all_types[key]
         # Create mask for current room type 
         mask = (self.room_types_channel == value).astype(np.uint8)
         # Find contours in the mask
