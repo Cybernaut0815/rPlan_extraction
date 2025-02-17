@@ -204,6 +204,126 @@ for i, door_contour in enumerate(offset_door_contours):
                 
 
 
+# %%
+
+def offset_room_contours(fp, offset_distance=1.5):
+    room_contours = fp.contours.copy()
+    room_contours.pop("interior door")  # Remove interior doors since we handle them separately
+
+    offset_contours_dict = {}
+    
+    # Iterate through room types and their contours
+    for room_type, contour_list in room_contours.items():
+        offset_contours_dict[room_type] = []
+        
+        for c in contour_list:
+            if len(c) < 4:
+                continue
+            coords = c.copy().reshape(-1, 2)
+            if not np.array_equal(coords[0], coords[-1]):
+                coords = np.vstack([coords, coords[0]])
+
+            poly = Polygon(coords)
+            if not poly.is_valid:
+                print(f"Invalid polygon: {poly}")
+                continue
+            
+            # Offset the polygon by the specified distance
+            try:
+                offset_poly = poly.buffer(offset_distance, join_style=2)
+                if offset_poly.is_valid:
+                    offset_contours_dict[room_type].append(offset_poly)
+            except Exception as e:
+                print(f"Error offsetting polygon: {e}")
+                continue
+
+    return offset_contours_dict
+
+
+room_contours_offset_dict = offset_room_contours(my_fp)
+
+# Plot the original floorplan and offset contours
+plt.figure(figsize=(12,8))
+plt.imshow(my_fp.room_types_channel)
+
+# Plot offset room contours
+for offset_poly in room_contours_offset_dict.values():
+    for offset_poly in offset_poly:
+        # Extract coordinates from the polygon
+        x, y = offset_poly.exterior.xy
+        plt.plot(x, y, 'r-', linewidth=1)
+
+# Plot offset door contours
+for door_contour in my_fp.contours["interior door"]:
+    # Reshape contour to x,y coordinates
+    door_coords = door_contour.reshape(-1, 2)
+    # Ensure plotting coordinates are closed
+    if not np.array_equal(door_coords[0], door_coords[-1]):
+        door_coords = np.vstack([door_coords, door_coords[0]])
+    x = door_coords[:, 0]
+    y = door_coords[:, 1]
+    plt.plot(x, y, 'b-', linewidth=1)
+
+plt.title("Room and Door Contours with Offsets")
+plt.axis('image')
+plt.show()
+
+
+# %%
+
+# Create a graph to represent room connectivity
+G = nx.Graph()
+
+# Add nodes for each room
+for room_type, offset_polys in room_contours_offset_dict.items():
+    for i, poly in enumerate(offset_polys):
+        node_id = f"{room_type}_{i}"
+        G.add_node(node_id, room_type=room_type)
+
+# Check for intersections between offset door contours and room contours
+for door_line in my_fp.contours["interior door"]:
+    
+    # Reshape contour to x,y coordinates
+    door_coords = door_line.reshape(-1, 2)
+    # Ensure plotting coordinates are closed
+    if not np.array_equal(door_coords[0], door_coords[-1]):
+        door_coords = np.vstack([door_coords, door_coords[0]])
+        
+    # Create a LineString from the door coordinates
+    door_line = LineString(door_coords)
+    
+    intersecting_rooms = []
+    
+    # Check intersection with each room's offset polygon
+    for room_type, offset_polys in room_contours_offset_dict.items():
+        for i, room_poly in enumerate(offset_polys):
+            if door_line.intersects(room_poly):
+                intersecting_rooms.append(f"{room_type}_{i}")
+    
+    # If a door intersects exactly 2 rooms, add an edge between them
+    if len(intersecting_rooms) == 2:
+        G.add_edge(intersecting_rooms[0], intersecting_rooms[1])
+
+# Print graph information
+print(f"Number of nodes: {G.number_of_nodes()}")
+print(f"Number of edges: {G.number_of_edges()}")
+print("\nConnections found:")
+for edge in G.edges():
+    print(f"{edge[0]} <-> {edge[1]}")
+
+# Visualize the graph
+plt.figure(figsize=(10, 10))
+pos = nx.spring_layout(G)
+nx.draw(G, pos, with_labels=True, node_color='lightblue', 
+        node_size=5000, font_size=12, font_weight='bold')
+plt.title("Room Connectivity Graph")
+plt.show()
+
+
+
+
+
+
 
 
 
