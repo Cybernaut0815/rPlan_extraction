@@ -23,10 +23,10 @@ load_dotenv(override=True)
 # %%
 
 DATA_PATH = r"G:\Datasets\rPlan\dataset\dataset\floorplan_dataset"
-TEST_OUTPUT_PATH = r"G:\Datasets\rPlan\dataset\dataset\test_output"
+OUTPUT_PATH = r"G:\Datasets\rPlan\dataset\dataset\output_first_100"
 
-if not os.path.exists(TEST_OUTPUT_PATH):
-    os.makedirs(TEST_OUTPUT_PATH)
+if not os.path.exists(OUTPUT_PATH):
+    os.makedirs(OUTPUT_PATH)
 
 
 
@@ -72,6 +72,7 @@ for i, description in enumerate(data["descriptions"]):
     print("\n")
 
 
+
 # %%
 
 # test plotting first 100 paths to check for 
@@ -98,3 +99,32 @@ for i, description in enumerate(data["descriptions"]):
 # plt.show()
 
 # %%
+
+# label generation loop
+
+import logging
+from tqdm import tqdm
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+max_index = 100
+
+for i, path in tqdm(enumerate(paths[:max_index]), total=max_index):
+    
+    if i % 10 == 0:
+        print(f"Processing {i} of {len(paths)}")
+    
+    try:
+        my_fp = Floorplan(os.path.join(DATA_PATH, path), wall_width=wall_width)
+        data = my_fp.generate_llm_descriptions(llm, system_message, query)
+        
+        # save the description
+        with open(os.path.join(OUTPUT_PATH, f"description_{i}.json"), "w") as f:
+            json.dump(data, f)
+        logger.info(f"Processed {i} of {len(paths)}")
+        
+    except Exception as e:
+        logger.error(f"Error processing plan {path}: {e}")
+
+
