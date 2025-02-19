@@ -57,7 +57,7 @@ def get_descriptions(data, llm, system_message, query, description_number=3):
         result = llm.invoke(messages)
         
         if result is None:
-            print(f"No valid response from the LLM")
+            print("No valid response from the LLM")
             continue
         elif hasattr(result, 'content'):
             descriptions.append(result.content)
