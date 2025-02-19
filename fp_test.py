@@ -128,3 +128,5 @@ for i, path in tqdm(enumerate(paths[:max_index]), total=max_index):
         logger.error(f"Error processing plan {path}: {e}")
 
 
+
+# %%

@@ -3,12 +3,7 @@ import json
 import random
 from copy import deepcopy
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI, OpenAI
-from langchain.chains import ConversationChain
-from langchain.chains.conversation.memory import ConversationBufferMemory, ConversationSummaryMemory
-from langchain.callbacks import get_openai_callback
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, SystemMessage
 
 
 def get_descriptions(data, llm, system_message, query, description_number=3):
