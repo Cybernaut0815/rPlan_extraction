@@ -49,17 +49,20 @@ def get_descriptions(data, llm, system_message, query, description_number=3):
         if random.random() < 0.5:
             processed_data_1 = deepcopy(data)
             processed_data_1 = add_bedrooms(processed_data_1)
-            # print(processed_data_1["room_counts"])
-            # print(processed_data_1["graph_string"])
             messages[1] = HumanMessage(content=query + "\n" + "Room counts: " + json.dumps(processed_data_1["room_counts"]) + "\n" + "Room connections: " + json.dumps(processed_data_1["graph_string"]))
         else:
             processed_data_2 = deepcopy(data)
-            # print(processed_data_2["room_counts"])
-            # print(processed_data_2["graph_string"])
             messages[1] = HumanMessage(content=query + "\n" + "Room counts: " + json.dumps(processed_data_2["room_counts"]) + "\n" + "Room connections: " + json.dumps(processed_data_2["graph_string"]))
         
         result = llm.invoke(messages)
-        descriptions.append(result.content)
+        
+        if result is None:
+            print(f"No valid response from the LLM")
+            continue
+        elif hasattr(result, 'content'):
+            descriptions.append(result.content)
+        else:
+            descriptions.append(result)
 
     return descriptions
 
