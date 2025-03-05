@@ -147,7 +147,33 @@ class Floorplan:
         # Calculate spacing between points
         x_spacing = x[1] - x[0]
         y_spacing = y[1] - y[0]
-
+        
+        if x_spacing <= self.wall_width or y_spacing <= self.wall_width:
+            # Calculate new point count to ensure spacing is slightly larger than wall width
+            # Use the larger dimension to maintain aspect ratio
+            width_points = int(self.image.shape[1] / (self.wall_width * 1.5))
+            height_points = int(self.image.shape[0] / (self.wall_width * 1.5))
+            reduced_count = min(width_points, height_points)
+            
+            x = np.linspace(0, self.image.shape[1], reduced_count+1)
+            y = np.linspace(0, self.image.shape[0], reduced_count+1)
+            X, Y = np.meshgrid(x, y)
+            X = X[:-1, :-1]
+            Y = Y[:-1, :-1]
+            
+            # Process at reduced resolution
+            resized_fp = resize_plan(self.image, X, Y)
+            
+            # Create final array with target dimensions
+            final_fp = np.zeros((point_count, point_count, 3))
+            
+            # Resize each channel separately using nearest neighbor interpolation
+            for i in range(3):
+                final_fp[:,:,i] = cv2.resize(resized_fp[:,:,i], 
+                                            (point_count, point_count), 
+                                            interpolation=cv2.INTER_NEAREST)
+            return final_fp
+            
         # Shift grid by half the spacing
         X = X + x_spacing/2
         Y = Y + y_spacing/2

@@ -90,13 +90,13 @@ for i, description in enumerate(data["descriptions"]):
 
 # test resizing and wall removal for simple diffusion model training
 
-# resized_fp = my_fp.pixel_based_resize(32)
+resized_fp = my_fp.pixel_based_resize(128)
 
-# print(resized_fp.shape)
-# plt.figure(figsize=(10,10))
-# plt.imshow(resized_fp[:,:,0])
-# plt.axis('off')
-# plt.show()
+print(resized_fp.shape)
+plt.figure(figsize=(10,10))
+plt.imshow(resized_fp[:,:,0])
+plt.axis('off')
+plt.show()
 
 # %%
 
