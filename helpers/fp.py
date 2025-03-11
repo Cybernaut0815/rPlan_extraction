@@ -80,7 +80,17 @@ class Floorplan:
         print("Cannot set mask channel.")
         return self._image[:,:,3]
 
-
+    def get_size(self):
+        # Get the total number of pixels in the image
+        total_pixels = self.mask_channel.shape[0] * self.mask_channel.shape[1]
+        
+        # Count white pixels (value 255) in mask channel
+        white_pixels = np.sum(self.mask_channel == 255)
+        
+        # Calculate ratio
+        ratio = white_pixels / total_pixels
+        
+        return ratio
     
     def get_room_types_count(self):
         count_dict = {}
