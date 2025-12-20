@@ -191,6 +191,254 @@ class Floorplan:
         return resize_plan(self.image, X, Y)
 
 
+    def outline_based_resize(self, target_size):
+        """
+        Resize floor plan using polygon-based approach:
+        1. Create offset polygons (outward by half wall width)
+        2. For each grid point, check which polygon(s) it's contained in
+        3. For ambiguous points (in multiple polygons), select based on distance to original outline
+        """
+        # Create grid points
+        x = np.linspace(0, self.image.shape[1], target_size + 1)
+        y = np.linspace(0, self.image.shape[0], target_size + 1)
+        X, Y = np.meshgrid(x, y)
+        X = X[:-1, :-1]
+        Y = Y[:-1, :-1]
+        
+        # Build mapping of original polygons (no offset at start)
+        from shapely.prepared import prep
+        room_entries = []  # list of dicts: {room_type, original_poly, offset_geom, prepared_offset}
+
+        for room_type, contour_list in self.contours.items():
+            if room_type == "interior door":
+                continue
+
+            for c in contour_list:
+                original_poly = self.contours_to_polygons(c)
+                if original_poly is None:
+                    continue
+
+                # Use original polygon without offset
+                geoms = [original_poly]
+
+                for g in geoms:
+                    if g.is_empty:
+                        continue
+                    # Prepared geometry speeds up point-in-polygon queries
+                    room_entries.append({
+                        'room_type': room_type,
+                        'original_poly': original_poly,
+                        'offset_geom': g,
+                        'prepared_offset': prep(g)
+                    })
+        
+        # Create output array
+        resized_fp = np.zeros((X.shape[0], X.shape[1], 3))
+        
+        # For each grid point
+        for i in range(X.shape[0]):
+            for j in range(X.shape[1]):
+                point_x = X[i, j]
+                point_y = Y[i, j]
+                
+                from shapely.geometry import Point
+                point = Point(point_x, point_y)
+                
+                # Find which offset polygons cover this point (includes boundary)
+                hits = []
+                for entry in room_entries:
+                    if entry['prepared_offset'].covers(point):
+                        hits.append(entry)
+                
+                if len(hits) == 0:
+                    # Outside all offset polygons: mark as external area and set mask
+                    orig_y = int(np.clip(point_y, 0, self.image.shape[0] - 1))
+                    orig_x = int(np.clip(point_x, 0, self.image.shape[1] - 1))
+                    resized_fp[i, j, 0] = self.info.all_types["external area"]  # 13
+                    resized_fp[i, j, 1] = self.image[orig_y, orig_x, 2]
+                    resized_fp[i, j, 2] = 1
+                
+                elif len(hits) == 1:
+                    # Point in exactly one room
+                    room_type = hits[0]['room_type']
+                    room_value = self.info.room_types[room_type]
+                    resized_fp[i, j, 0] = room_value
+                    
+                    # Get second channel value from original image
+                    orig_y = int(np.clip(point_y, 0, self.image.shape[0] - 1))
+                    orig_x = int(np.clip(point_x, 0, self.image.shape[1] - 1))
+                    resized_fp[i, j, 1] = self.image[orig_y, orig_x, 2]
+                    resized_fp[i, j, 2] = 0
+                
+                else:
+                    # Point in multiple rooms - use distance to original outline
+                    min_dist = float('inf')
+                    best_room = None
+                    
+                    for entry in hits:
+                        room_type = entry['room_type']
+                        original_poly = entry['original_poly']
+                        
+                        # Distance to original outline (before offset)
+                        dist = point.distance(original_poly.exterior)
+                        
+                        if dist < min_dist:
+                            min_dist = dist
+                            best_room = room_type
+                    
+                    if best_room:
+                        room_value = self.info.room_types[best_room]
+                        resized_fp[i, j, 0] = room_value
+                        
+                        # Get second channel value from original image
+                        orig_y = int(np.clip(point_y, 0, self.image.shape[0] - 1))
+                        orig_x = int(np.clip(point_x, 0, self.image.shape[1] - 1))
+                        resized_fp[i, j, 1] = self.image[orig_y, orig_x, 2]
+                        resized_fp[i, j, 2] = 0
+        
+        # Post-process: iteratively fill interior-wall and interior-door gaps
+        # For each iteration: for each room, first expand ALL pixels right, then expand ALL pixels down
+        # Right pass happens fully, then down pass uses the updated state
+        interior_wall_val = self.info.all_types.get("interior wall", 16)
+        interior_door_val = self.info.all_types.get("interior door", 17)
+
+        out_h, out_w, _ = resized_fp.shape
+        
+        # Pre-compute which cells are fillable (original is wall or door)
+        fillable = np.zeros((out_h, out_w), dtype=bool)
+        for i in range(out_h):
+            for j in range(out_w):
+                ty = int(np.clip(Y[i, j], 0, self.image.shape[0] - 1))
+                tx = int(np.clip(X[i, j], 0, self.image.shape[1] - 1))
+                orig_val = self.image[ty, tx, 1]
+                fillable[i, j] = (orig_val == interior_wall_val or orig_val == interior_door_val)
+        
+        # Limited iterative passes
+        max_passes = 5
+        for pass_num in range(max_passes):
+            changed = False
+            
+            # For each room type (0-11 are valid rooms)
+            for room_val in range(12):
+                # Phase 1: expand all pixels of this room to the right
+                room_pixels = np.where(resized_fp[:, :, 0] == room_val)
+                room_indices = list(zip(room_pixels[0], room_pixels[1]))
+                
+                for i, j in room_indices:
+                    if j + 1 < out_w and fillable[i, j + 1] and resized_fp[i, j + 1, 0] > 11:
+                        resized_fp[i, j + 1, 0] = room_val
+                        resized_fp[i, j + 1, 1] = resized_fp[i, j, 1]
+                        resized_fp[i, j + 1, 2] = 0
+                        changed = True
+                
+                # Phase 2: expand all pixels of this room down (using updated state after right phase)
+                room_pixels = np.where(resized_fp[:, :, 0] == room_val)
+                room_indices = list(zip(room_pixels[0], room_pixels[1]))
+                
+                for i, j in room_indices:
+                    if i + 1 < out_h and fillable[i + 1, j] and resized_fp[i + 1, j, 0] > 11:
+                        resized_fp[i + 1, j, 0] = room_val
+                        resized_fp[i + 1, j, 1] = resized_fp[i, j, 1]
+                        resized_fp[i + 1, j, 2] = 0
+                        changed = True
+
+            if not changed:
+                break
+
+        # Post-process: 4-neighbor majority filter
+        # If 2+ of the 4 neighbors have the same value and it differs from current pixel, adopt it
+        # But if there's a 2-2 tie, leave unchanged
+        from collections import Counter
+        for i in range(out_h):
+            for j in range(out_w):
+                current_val = resized_fp[i, j, 0]
+                
+                # Get 4-neighbor values (up, down, left, right)
+                neighbors = []
+                if i > 0:
+                    neighbors.append(resized_fp[i-1, j, 0])
+                if i < out_h - 1:
+                    neighbors.append(resized_fp[i+1, j, 0])
+                if j > 0:
+                    neighbors.append(resized_fp[i, j-1, 0])
+                if j < out_w - 1:
+                    neighbors.append(resized_fp[i, j+1, 0])
+                
+                if neighbors:
+                    freq = Counter(neighbors)
+                    most_common_val, most_common_count = freq.most_common(1)[0]
+                    
+                    # Change if: 2+ neighbors same AND different from current AND no tie
+                    if most_common_count >= 2 and most_common_val != current_val:
+                        # Check for 2-2 tie
+                        other_with_2_plus = [v for v, c in freq.items() if c >= 2 and v != most_common_val]
+                        if not other_with_2_plus:
+                            resized_fp[i, j, 0] = most_common_val
+
+        # Post-process: corner fill (8-neighbor "eaten out" corners)
+        # If 3 neighbors forming a corner have the same value (different from current)
+        # and the other 5 neighbors match current value, fill the pixel with corner value
+        for i in range(out_h):
+            for j in range(out_w):
+                current_val = resized_fp[i, j, 0]
+                
+                # Get 8-neighbors: up, up-right, right, down-right, down, down-left, left, up-left
+                neighbors_8 = {}
+                if i > 0:
+                    neighbors_8['up'] = resized_fp[i-1, j, 0]
+                if i > 0 and j < out_w - 1:
+                    neighbors_8['up-right'] = resized_fp[i-1, j+1, 0]
+                if j < out_w - 1:
+                    neighbors_8['right'] = resized_fp[i, j+1, 0]
+                if i < out_h - 1 and j < out_w - 1:
+                    neighbors_8['down-right'] = resized_fp[i+1, j+1, 0]
+                if i < out_h - 1:
+                    neighbors_8['down'] = resized_fp[i+1, j, 0]
+                if i < out_h - 1 and j > 0:
+                    neighbors_8['down-left'] = resized_fp[i+1, j-1, 0]
+                if j > 0:
+                    neighbors_8['left'] = resized_fp[i, j-1, 0]
+                if i > 0 and j > 0:
+                    neighbors_8['up-left'] = resized_fp[i-1, j-1, 0]
+                
+                # Define 4 corner patterns (3 neighbors each)
+                corners = [
+                    ['up', 'up-left', 'left'],           # top-left corner
+                    ['up', 'up-right', 'right'],         # top-right corner
+                    ['down', 'down-left', 'left'],       # bottom-left corner
+                    ['down', 'down-right', 'right']      # bottom-right corner
+                ]
+                
+                filled = False
+                for corner_dirs in corners:
+                    if filled:
+                        break
+                    
+                    # Check if all 3 corner neighbors exist
+                    if not all(d in neighbors_8 for d in corner_dirs):
+                        continue
+                    
+                    corner_vals = [neighbors_8[d] for d in corner_dirs]
+                    # Check if all 3 corner neighbors have the same value
+                    if len(set(corner_vals)) != 1:
+                        continue
+                    
+                    corner_val = corner_vals[0]
+                    if corner_val == current_val:
+                        continue  # corner value must differ from current
+                    
+                    # Check if all other neighbors match current value
+                    other_dirs = [d for d in neighbors_8 if d not in corner_dirs]
+                    other_vals = [neighbors_8[d] for d in other_dirs]
+                    
+                    if all(v == current_val for v in other_vals):
+                        # Found eaten-out corner, fill it
+                        resized_fp[i, j, 0] = corner_val
+                        filled = True
+
+        return resized_fp
+
+
     def contours_to_polygons(self, contour):
         if len(contour) < 4:
             return None

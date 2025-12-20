@@ -88,14 +88,40 @@ for i, path in enumerate(paths[:10]):
 
 # %%
 
+import importlib
+import helpers.fp
+import helpers.utils
+importlib.reload(helpers.fp)
+importlib.reload(helpers.utils)
+from helpers.info import Info
+from helpers.utils import load_image_paths
+from helpers.fp import Floorplan
+
 # test resizing and wall removal for simple diffusion model training
+import random as rand
 
-resized_fp = my_fp.pixel_based_resize(128)
+random_path = os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)])
+test_fp = Floorplan(random_path, wall_width=wall_width)
 
-print(resized_fp.shape)
-plt.figure(figsize=(10,10))
-plt.imshow(resized_fp[:,:,0])
-plt.axis('off')
+resized_fp_pixels = test_fp.pixel_based_resize(128)
+resized_fp_outlines = test_fp.outline_based_resize(128)
+
+test_fp.draw_room_connectivity_on_plan()
+
+
+print("pixel-based shape:", resized_fp_pixels.shape, "outline-based shape:", resized_fp_outlines.shape)
+plt.figure(figsize=(12,6))
+ax1 = plt.subplot(1,2,1)
+ax1.imshow(resized_fp_pixels[:,:,0])
+ax1.set_title('Pixel-based Resize')
+ax1.axis('off')
+
+ax2 = plt.subplot(1,2,2)
+ax2.imshow(resized_fp_outlines[:,:,0])
+ax2.set_title('Outline-based Resize')
+ax2.axis('off')
+
+plt.tight_layout()
 plt.show()
 
 # %%
@@ -108,25 +134,26 @@ from tqdm import tqdm
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-max_index = 100
+run_label_loop = False
+max_index = 10
 
-for i, path in tqdm(enumerate(paths[:max_index]), total=max_index):
-    
-    if i % 10 == 0:
-        print(f"Processing {i} of {len(paths)}")
-    
-    try:
-        my_fp = Floorplan(os.path.join(DATA_PATH, path), wall_width=wall_width)
-        data = my_fp.generate_llm_descriptions(llm, system_message, query)
+if run_label_loop:
+    for i, path in tqdm(enumerate(paths[:max_index]), total=max_index):
         
-        # save the description
-        with open(os.path.join(OUTPUT_PATH, f"description_{i}.json"), "w") as f:
-            json.dump(data, f)
-        logger.info(f"Processed {i} of {len(paths)}")
+        if i % 10 == 0:
+            print(f"Processing {i} of {len(paths)}")
         
-    except Exception as e:
-        logger.error(f"Error processing plan {path}: {e}")
-
+        try:
+            my_fp = Floorplan(os.path.join(DATA_PATH, path), wall_width=wall_width)
+            data = my_fp.generate_llm_descriptions(llm, system_message, query)
+            
+            # save the description
+            with open(os.path.join(OUTPUT_PATH, f"description_{i}.json"), "w") as f:
+                json.dump(data, f)
+            logger.info(f"Processed {i} of {len(paths)}")
+            
+        except Exception as e:
+            logger.error(f"Error processing plan {path}: {e}")
 
 
 # %%
