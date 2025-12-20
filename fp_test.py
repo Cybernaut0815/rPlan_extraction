@@ -22,8 +22,8 @@ load_dotenv(override=True)
 
 # %%
 
-DATA_PATH = r"G:\Datasets\rPlan\dataset\dataset\floorplan_dataset"
-OUTPUT_PATH = r"G:\Datasets\rPlan\dataset\dataset\output_first_100"
+DATA_PATH = r"D:\Datasets\rPlan\dataset\floorplan_dataset"
+OUTPUT_PATH = r"D:\Datasets\rPlan\dataset\dataset\output_first_100"
 
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
@@ -75,15 +75,15 @@ for i, description in enumerate(data["descriptions"]):
 
 # %%
 
-# test plotting first 100 paths to check for 
+# test plotting first 10 paths to check for 
 
-# for i, path in enumerate(paths[:100]):
-#     if i == 100:
-#         break
-#     print(f"Processing {i} of {len(paths)}")
-#     full_path = os.path.join(DATA_PATH, path)
-#     my_fp = Floorplan(full_path, wall_width=wall_width)
-#     my_fp.draw_room_connectivity_on_plan()
+for i, path in enumerate(paths[:10]):
+    if i == 10:
+        break
+    print(f"Processing {i} of {len(paths)}")
+    full_path = os.path.join(DATA_PATH, path)
+    my_fp = Floorplan(full_path, wall_width=wall_width)
+    my_fp.draw_room_connectivity_on_plan()
 
 
 # %%

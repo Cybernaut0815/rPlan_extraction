@@ -1,0 +1,11 @@
+opencv-python==4.12.0.88
+shapely
+tqdm
+numpy
+matplotlib
+networkx
+langchain==1.2.0
+langchain-openai==1.1.6
+dotenv
+openai
+ipykernel
