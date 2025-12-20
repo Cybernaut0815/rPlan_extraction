@@ -164,6 +164,116 @@ def load_image(path):
     return Image.open(path)
 
 
+def _majority_filter_4(room_channel, num_classes=18):
+    """4-neighbor majority without 2-2 tie. Returns filtered channel."""
+    h, w = room_channel.shape
+    counts = np.zeros((h, w, num_classes), dtype=np.int16)
+    # Up
+    if h > 1:
+        up = room_channel[:-1, :]
+        counts[1:, :, :] += np.eye(num_classes, dtype=np.int16)[up]
+    # Down
+    if h > 1:
+        down = room_channel[1:, :]
+        counts[:-1, :, :] += np.eye(num_classes, dtype=np.int16)[down]
+    # Left
+    if w > 1:
+        left = room_channel[:, :-1]
+        counts[:, 1:, :] += np.eye(num_classes, dtype=np.int16)[left]
+    # Right
+    if w > 1:
+        right = room_channel[:, 1:]
+        counts[:, :-1, :] += np.eye(num_classes, dtype=np.int16)[right]
+
+    max_counts = counts.max(axis=-1)
+    modes = counts.argmax(axis=-1)
+    tie_mask = (counts == max_counts[..., None]).sum(axis=-1) > 1
+    update_mask = (max_counts >= 2) & (~tie_mask) & (modes != room_channel)
+    return np.where(update_mask, modes, room_channel)
+
+
+def _corner_fill_8(room_channel):
+    """Fill eaten-out corners: if 3-corner neighbors match and others match current, fill pixel."""
+    h, w = room_channel.shape
+    padded = np.pad(room_channel, 1, mode='edge')
+    # Neighbor slices
+    up = padded[0:h, 1:w+1]
+    up_right = padded[0:h, 2:w+2]
+    right = padded[1:h+1, 2:w+2]
+    down_right = padded[2:h+2, 2:w+2]
+    down = padded[2:h+2, 1:w+1]
+    down_left = padded[2:h+2, 0:w]
+    left = padded[1:h+1, 0:w]
+    up_left = padded[0:h, 0:w]
+
+    current = room_channel
+    result = room_channel.copy()
+
+    corners = [
+        (up, up_left, left),          # top-left
+        (up, up_right, right),        # top-right
+        (down, down_left, left),      # bottom-left
+        (down, down_right, right),    # bottom-right
+    ]
+
+    all_neighbors = [up, up_right, right, down_right, down, down_left, left, up_left]
+    for c1, c2, c3 in corners:
+        same_corner = (c1 == c2) & (c2 == c3)
+        corner_val = c1
+        # other neighbors (exclude the corner triple)
+        other_equal = np.ones_like(current, dtype=bool)
+        for neigh in all_neighbors:
+            if neigh is c1 or neigh is c2 or neigh is c3:
+                continue
+            other_equal &= (neigh == current)
+        mask = same_corner & (corner_val != current) & other_equal
+        result = np.where(mask, corner_val, result)
+    return result
+
+
+def apply_room_postprocess(room_channel):
+    """Apply 4-neighbor majority then corner fill to room_channel."""
+    filtered = _majority_filter_4(room_channel)
+    filled = _corner_fill_8(filtered)
+    return filled
+
+
+def expand_rooms_right_down(resized_fp, fillable, num_rooms=12, max_passes=5):
+    """Iteratively expand each room right then down into fillable cells (in-place)."""
+    h, w, _ = resized_fp.shape
+    for _ in range(max_passes):
+        changed = False
+        for room_val in range(num_rooms):
+            yx = np.where(resized_fp[:, :, 0] == room_val)
+            if yx[0].size == 0:
+                continue
+
+            # Right
+            tgt_j = yx[1] + 1
+            mask = (tgt_j < w) & fillable[yx[0], tgt_j] & (resized_fp[yx[0], tgt_j, 0] > 11)
+            if mask.any():
+                ry, rj = yx[0][mask], tgt_j[mask]
+                resized_fp[ry, rj, 0] = room_val
+                resized_fp[ry, rj, 1] = resized_fp[yx[0][mask], yx[1][mask], 1]
+                resized_fp[ry, rj, 2] = 0
+                changed = True
+
+            # Down (recompute sources after right phase for this room)
+            yx = np.where(resized_fp[:, :, 0] == room_val)
+            tgt_i = yx[0] + 1
+            mask = (tgt_i < h) & fillable[tgt_i, yx[1]] & (resized_fp[tgt_i, yx[1], 0] > 11)
+            if mask.any():
+                di, dj = tgt_i[mask], yx[1][mask]
+                resized_fp[di, dj, 0] = room_val
+                resized_fp[di, dj, 1] = resized_fp[yx[0][mask], yx[1][mask], 1]
+                resized_fp[di, dj, 2] = 0
+                changed = True
+
+        if not changed:
+            break
+    return resized_fp
+
+
 
 
 
