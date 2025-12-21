@@ -55,8 +55,10 @@ python run_full_extraction.py --data_path D:/Datasets/rPlan/dataset/floorplan_da
 ## To Do
 
 - ~~Extract room sizes~~
-- Add entrance to the graph
-- Add room sizes and entrance to LLM description
+- ~~Add entrance to the graph~~
+- ~~Add entrance to LLM description~~
+- Get size ranges for LLM description
+- Add sizes to LLM description
 
 - Add FloorplanAnalytics to the plans to enrich the dataset
 ... continue ...
