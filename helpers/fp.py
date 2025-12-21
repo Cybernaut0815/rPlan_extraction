@@ -9,6 +9,7 @@ from helpers.info import Info
 from helpers.utils import load_image, resize_plan, apply_room_postprocess, expand_rooms_right_down
 from helpers.llm_utils import get_descriptions
 import matplotlib.pyplot as plt
+import cv2
 
 
 class Floorplan:
@@ -159,8 +160,6 @@ class Floorplan:
         y_spacing = y[1] - y[0]
         
         if x_spacing <= self.wall_width or y_spacing <= self.wall_width:
-            # Calculate new point count to ensure spacing is slightly larger than wall width
-            # Use the larger dimension to maintain aspect ratio
             width_points = int(self.image.shape[1] / (self.wall_width * 1.5))
             height_points = int(self.image.shape[0] / (self.wall_width * 1.5))
             reduced_count = min(width_points, height_points)
@@ -170,25 +169,30 @@ class Floorplan:
             X, Y = np.meshgrid(x, y)
             X = X[:-1, :-1]
             Y = Y[:-1, :-1]
-            
-            # Process at reduced resolution
-            resized_fp = resize_plan(self.image, X, Y)
-            
-            # Create final array with target dimensions
+            base_fp = resize_plan(self.image, X, Y)
             final_fp = np.zeros((point_count, point_count, 3))
-            
-            # Resize each channel separately using nearest neighbor interpolation
             for i in range(3):
-                final_fp[:,:,i] = cv2.resize(resized_fp[:,:,i], 
-                                            (point_count, point_count), 
-                                            interpolation=cv2.INTER_NEAREST)
-            return final_fp
-            
-        # Shift grid by half the spacing
-        X = X + x_spacing/2
-        Y = Y + y_spacing/2
-        
-        return resize_plan(self.image, X, Y)
+                final_fp[:,:,i] = cv2.resize(base_fp[:,:,i], (point_count, point_count), interpolation=cv2.INTER_NEAREST)
+            resized_fp = final_fp
+        else:
+            X = X + x_spacing/2
+            Y = Y + y_spacing/2
+            resized_fp = resize_plan(self.image, X, Y)
+
+        # Mixed postprocessing: expand like outline-based and run kernels
+        interior_wall_val = self.info.all_types.get("interior wall", 16)
+        interior_door_val = self.info.all_types.get("interior door", 17)
+        x_fill = np.linspace(0, self.image.shape[1], point_count+1)[:-1]
+        y_fill = np.linspace(0, self.image.shape[0], point_count+1)[:-1]
+        X_fill, Y_fill = np.meshgrid(x_fill, y_fill)
+        X_fill = X_fill + x_spacing/2
+        Y_fill = Y_fill + y_spacing/2
+        ty = np.clip(Y_fill, 0, self.image.shape[0] - 1).astype(int)
+        tx = np.clip(X_fill, 0, self.image.shape[1] - 1).astype(int)
+        orig_vals = self.image[ty, tx, 1]
+        fillable = (orig_vals == interior_wall_val) | (orig_vals == interior_door_val)
+        resized_fp = expand_rooms_right_down(resized_fp, fillable, num_rooms=12, max_passes=5)
+        return self._postprocess_and_mask(resized_fp)
 
 
     def outline_based_resize(self, target_size):
@@ -305,12 +309,8 @@ class Floorplan:
         tx = np.clip(X, 0, self.image.shape[1] - 1).astype(int)
         orig_vals = self.image[ty, tx, 1]
         fillable[:] = (orig_vals == interior_wall_val) | (orig_vals == interior_door_val)
-
         resized_fp = expand_rooms_right_down(resized_fp, fillable, num_rooms=12, max_passes=5)
-
-        resized_fp[:, :, 0] = apply_room_postprocess(resized_fp[:, :, 0].astype(np.int32))
-
-        return resized_fp
+        return self._postprocess_and_mask(resized_fp)
 
 
     def contours_to_polygons(self, contour):
@@ -559,45 +559,28 @@ class Floorplan:
         return nx.to_numpy_array(G)
     
     
-    def draw_contours(self):
-        for room_type, contours in self.contours.items():
-            polygon = self.contours_to_polygons(contours)
-            if polygon is None:
-                continue
-            plt.plot(polygon.exterior.xy[0], polygon.exterior.xy[1], 'r-')
-        plt.show()
-
-
     def draw_contours(self, offset=False):
+        """Draw room contours with optional offset and interior door markers."""
+        contours_dict = self.offset_room_contours(offset_distance=self.wall_width if offset else 0)
+        door_contours = [self.contours_to_polygons(c) for c in self.contours["interior door"]]
         
-        if offset:
-            contours = self.offset_room_contours(offset_distance=self.wall_width)
-        else:
-            contours = self.offset_room_contours(offset_distance=0)
-
-        door_contours = [self.contours_to_polygons(door_contours) for door_contours in self.contours["interior door"]]
-        
-        plt.figure(figsize=(10,10))
+        plt.figure(figsize=(10, 10))
         colors = self.info.get_type_color()
 
-        # Draw offset room contours
-        for (room_type, polys), color in zip(contours.items(), colors):
+        for (room_type, polys), color in zip(contours_dict.items(), colors):
             for poly in polys:
                 x, y = poly.exterior.xy
                 plt.plot(x, y, color=color, label=room_type)
 
-        # Draw door contours
         for door_contour in door_contours:
             if door_contour is not None:
                 x, y = door_contour.exterior.xy
                 plt.plot(x, y, color='black', label='interior door', linewidth=2)
 
-        # Remove duplicate labels
         handles, labels = plt.gca().get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         plt.legend(by_label.values(), by_label.keys())
-
-        plt.title("Offset Room Contours with Doors")
+        plt.title(f"Room Contours {'(Offset)' if offset else ''}")
         plt.axis('equal')
         plt.show()
         
@@ -614,20 +597,105 @@ class Floorplan:
 
         return "\n".join(rStrings)
 
+    def _label_instances(self, room_grid):
+        """Create instance map from connected components per room type."""
+        inst = np.zeros(room_grid.shape, dtype=np.int32)
+        next_id = 1
+        for rv in np.unique(room_grid):
+            if rv > 11:
+                continue
+            mask = (room_grid == rv).astype(np.uint8)
+            if mask.sum() == 0:
+                continue
+            num, labels = cv2.connectedComponents(mask, connectivity=4)
+            for comp_id in range(1, num):
+                inst[labels == comp_id] = next_id
+                next_id += 1
+        return inst
+
+    def _postprocess_and_mask(self, resized_fp):
+        """Apply postprocessing and calculate mask based on final room grid."""
+        resized_fp[:, :, 0] = apply_room_postprocess(resized_fp[:, :, 0].astype(np.int32))
+        resized_fp[:, :, 1] = self._label_instances(resized_fp[:, :, 0].astype(np.int32))
+        resized_fp[:, :, 2] = (resized_fp[:, :, 0] <= 11).astype(np.uint8)
+        return resized_fp
+
+    def _reproject_instances(self, room_post, room_pre, inst_pre):
+        """Map instance ids onto the postprocessed room grid by nearest seed of the same room type."""
+        h, w = room_post.shape
+        new_inst = np.zeros_like(inst_pre)
+
+        room_vals = np.unique(room_post)
+        for rv in room_vals:
+            if rv > 11:
+                # Keep non-room areas as-is
+                mask = room_post == rv
+                new_inst[mask] = inst_pre[mask]
+                continue
+
+            target_yx = np.argwhere(room_post == rv)
+            seed_yx = np.argwhere(room_pre == rv)
+            if seed_yx.size == 0 or target_yx.size == 0:
+                continue
+
+            seed_vals = inst_pre[room_pre == rv].flatten()
+            # Compute nearest seed for each target cell (grids are small, brute-force is fine)
+            dy = target_yx[:, None, 0] - seed_yx[None, :, 0]
+            dx = target_yx[:, None, 1] - seed_yx[None, :, 1]
+            d2 = dy * dy + dx * dx
+            nearest_idx = d2.argmin(axis=1)
+            new_inst[target_yx[:, 0], target_yx[:, 1]] = seed_vals[nearest_idx]
+
+        return new_inst
+
     ### here llm descriptions ###
     
-    def generate_llm_descriptions(self, llm, system_message, query, description_count=3, pixel_based_size=16):
+    def generate_llm_descriptions(self, llm, system_message, query, description_count=3, pixel_based_size=16, use_outline_based=True):
         
-        resized_fp = self.pixel_based_resize(pixel_based_size)
+        if use_outline_based:
+            resized_fp = self.outline_based_resize(pixel_based_size)
+        else:   
+            resized_fp = self.pixel_based_resize(pixel_based_size)
         room_types_count = self.get_room_types_count()     
         graph_string = self.graph_to_string()
         
+        # Build node metadata to preserve per-room identity and provide stable centroids
+        nodes = []
+        # Scale factors so centroids can be mapped onto the resized grid for visualization
+        scale_x = resized_fp.shape[1] / self.image.shape[1]
+        scale_y = resized_fp.shape[0] / self.image.shape[0]
+
+        # Use the final instance grid to map centroids to instance ids
+        final_instances = resized_fp[:, :, 1]
+
+        for node_id, data in self.room_connectivity_graph.nodes(data=True):
+            cx, cy = data.get("centroid", (None, None))
+
+            instance_id = None
+            if cx is not None and cy is not None:
+                # Map centroid into resized grid and sample the final instance map
+                gx = int(np.clip(cx * scale_x, 0, resized_fp.shape[1] - 1))
+                gy = int(np.clip(cy * scale_y, 0, resized_fp.shape[0] - 1))
+                instance_id = int(final_instances[gy, gx])
+
+            nodes.append({
+                "id": node_id,
+                "room_type": data.get("room_type"),
+                "centroid": [cx, cy] if cx is not None and cy is not None else None,
+                # Centroid rescaled to the resized grid for plotting
+                "centroid_resized": [cx * scale_x, cy * scale_y] if cx is not None and cy is not None else None,
+                "instance_id": instance_id
+            })
+        
         data = {
             "room_counts": room_types_count,
+            "original_dimensions": [self.image.shape[0], self.image.shape[1]],
             "dimensions": [resized_fp.shape[0], resized_fp.shape[1]],
             "functions": resized_fp[:,:,0].tolist(),
+            "instances": resized_fp[:,:,1].tolist(),
             "mask": resized_fp[:,:,2].tolist(),
             "graph": self.get_room_connectivity_matrix().tolist(),
+            "nodes": nodes,
             "graph_string": graph_string
         }
         

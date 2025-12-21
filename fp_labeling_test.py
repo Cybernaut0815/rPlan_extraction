@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from helpers.info import Info
 from helpers.utils import load_image_paths
 from helpers.fp import Floorplan
+from helpers.dataset_viz import load_and_visualize_datapoint
 
 from shapely.geometry import LineString, Polygon
 import networkx as nx
@@ -103,8 +104,10 @@ import random as rand
 random_path = os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)])
 test_fp = Floorplan(random_path, wall_width=wall_width)
 
-resized_fp_pixels = test_fp.pixel_based_resize(128)
-resized_fp_outlines = test_fp.outline_based_resize(128)
+size = 64
+
+resized_fp_pixels = test_fp.pixel_based_resize(64)
+resized_fp_outlines = test_fp.outline_based_resize(64)
 
 test_fp.draw_room_connectivity_on_plan()
 
@@ -134,18 +137,20 @@ from tqdm import tqdm
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-run_label_loop = False
-max_index = 10
+run_label_loop = True
+max_index_count = 10
+
+image_size_px = 64
 
 if run_label_loop:
-    for i, path in tqdm(enumerate(paths[:max_index]), total=max_index):
+    for i, path in tqdm(enumerate(paths[:max_index_count]), total=max_index_count):
         
         if i % 10 == 0:
             print(f"Processing {i} of {len(paths)}")
         
         try:
             my_fp = Floorplan(os.path.join(DATA_PATH, path), wall_width=wall_width)
-            data = my_fp.generate_llm_descriptions(llm, system_message, query)
+            data = my_fp.generate_llm_descriptions(llm, system_message, query, pixel_based_size=image_size_px)
             
             # save the description
             with open(os.path.join(OUTPUT_PATH, f"description_{i}.json"), "w") as f:
@@ -154,6 +159,17 @@ if run_label_loop:
             
         except Exception as e:
             logger.error(f"Error processing plan {path}: {e}")
+
+
+# %%
+
+import importlib
+import helpers.dataset_viz
+importlib.reload(helpers.dataset_viz)
+from helpers.dataset_viz import load_and_visualize_datapoint
+
+# Now visualize
+load_and_visualize_datapoint(1, OUTPUT_PATH)
 
 
 # %%

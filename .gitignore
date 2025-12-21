@@ -6,3 +6,7 @@ __pycache__/
 venv/
 
 outdated/
+output/
+
+logs/
+*.log
