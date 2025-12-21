@@ -21,7 +21,7 @@ python -m venv venv
 activate it
 
 ```bash
-python ./venv/Scripts/Activate.ps1
+./venv/Scripts/Activate.ps1
 ```
 
 and install the requirements
@@ -54,7 +54,7 @@ python run_extraction.py --data_path D:/Datasets/rPlan/dataset/floorplan_dataset
 
 ## To Do
 
-- Extract room sizes
+- ~~Extract room sizes~~
 - Add entrance to the graph
 - Add room sizes and entrance to LLM description
 
@@ -69,7 +69,7 @@ python run_extraction.py --data_path D:/Datasets/rPlan/dataset/floorplan_dataset
 rPlan:
 - https://docs.google.com/forms/d/e/1FAIpQLSfwteilXzURRKDI5QopWCyOGkeb_CFFbRwtQ0SOPhEg0KGSfw/viewform
 
-
+Other Datatset:
 - https://github.com/gesstalt/ROBIN
 
 ## Examples

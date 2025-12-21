@@ -13,7 +13,7 @@ import cv2
 
 
 class Floorplan:
-    def __init__(self, path, wall_width=2.0):
+    def __init__(self, path, wall_width=2.0, meter_to_pixel=16):
         self._image = np.array(load_image(path))
         self._outer_wall_channel = self._image[:,:,0]
         self._room_types_channel = self._image[:,:,1]
@@ -22,6 +22,7 @@ class Floorplan:
         
         self.info = Info()
         self.wall_width = wall_width
+        self.meter_to_pixel = meter_to_pixel  # pixels per meter (e.g., 16 pixels = 1 meter)
         
         self.contours = self.get_contours()
         self.room_connectivity_graph = self.get_room_connectivity_graph(wall_width)
@@ -585,6 +586,89 @@ class Floorplan:
         plt.show()
         
 
+    
+    def calculate_room_sizes(self, resized_fp):
+        """
+        Calculate room sizes in square meters independently for both original and resized floorplans.
+        Each size is calculated directly from the actual pixels in its corresponding image.
+        
+        Args:
+            resized_fp: The resized floorplan array with shape (height, width, channels)
+                       where channel 0 contains room types and channel 1 contains instance IDs
+        
+        Returns:
+            dict: Contains 'original_sizes' and 'resized_sizes', each mapping instance_id to area in m2
+        """
+        original_sizes = {}
+        resized_sizes = {}
+        
+        # Get instance map from resized floorplan
+        final_instances_resized = resized_fp[:, :, 1].astype(np.int32)
+        room_types_resized = resized_fp[:, :, 0].astype(np.int32)
+        unique_instances = np.unique(final_instances_resized)
+        
+        # Pixel area to m2 conversion factors
+        pixel_area_per_m2_original = self.meter_to_pixel ** 2
+        
+        # Calculate adjusted meter_to_pixel for resized image
+        scale_x = resized_fp.shape[1] / self.image.shape[1]
+        scale_y = resized_fp.shape[0] / self.image.shape[0]
+        adjusted_meter_to_pixel_x = self.meter_to_pixel * scale_x
+        adjusted_meter_to_pixel_y = self.meter_to_pixel * scale_y
+        pixel_area_per_m2_resized = adjusted_meter_to_pixel_x * adjusted_meter_to_pixel_y
+        
+        for instance_id in unique_instances:
+            if instance_id == 0:  # Skip background/invalid instances
+                continue
+            
+            # ===== RESIZED SIZE =====
+            # Count pixels directly from the resized image for this instance
+            resized_mask = (final_instances_resized == instance_id)
+            resized_pixel_count = np.sum(resized_mask)
+            resized_size_m2 = resized_pixel_count / pixel_area_per_m2_resized
+            
+            # ===== ORIGINAL SIZE =====
+            # Get the room type for this instance from the resized image
+            room_type_value = room_types_resized[resized_mask][0]  # Get first occurrence of this room type
+            
+            # Map this instance back to the original image and count matching pixels
+            # For each resized pixel belonging to this instance, find the corresponding region in original image
+            original_pixel_count = 0
+            resized_coords = np.argwhere(resized_mask)
+            
+            for ry, rx in resized_coords:
+                # Map resized pixel to original image region
+                orig_y_start = int(ry / scale_y)
+                orig_y_end = int((ry + 1) / scale_y)
+                orig_x_start = int(rx / scale_x)
+                orig_x_end = int((rx + 1) / scale_x)
+                
+                # Clamp to image boundaries
+                orig_y_start = max(0, orig_y_start)
+                orig_y_end = min(self.image.shape[0], orig_y_end)
+                orig_x_start = max(0, orig_x_start)
+                orig_x_end = min(self.image.shape[1], orig_x_end)
+                
+                # Count only pixels in original image that have the matching room type
+                # Use channel 1 (room_types_channel) which contains the room type values
+                region = self.image[orig_y_start:orig_y_end, orig_x_start:orig_x_end, 1]
+                matching_pixels = np.sum(region == room_type_value)
+                original_pixel_count += matching_pixels
+            
+            original_size_m2 = original_pixel_count / pixel_area_per_m2_original
+            
+            original_sizes[int(instance_id)] = round(original_size_m2, 1)
+            resized_sizes[int(instance_id)] = round(resized_size_m2, 1)
+        
+        return {
+            "original_sizes": original_sizes,
+            "resized_sizes": resized_sizes,
+            "pixel_area_per_m2_original": pixel_area_per_m2_original,
+            "pixel_area_per_m2_resized": round(pixel_area_per_m2_resized, 6),
+            "meter_to_pixel": self.meter_to_pixel,
+            "adjusted_meter_to_pixel": round(np.sqrt(pixel_area_per_m2_resized), 6)
+        }
+
     def graph_to_string(self):
         G = self.room_connectivity_graph
         
@@ -659,6 +743,9 @@ class Floorplan:
         room_types_count = self.get_room_types_count()     
         graph_string = self.graph_to_string()
         
+        # Calculate room sizes
+        room_sizes = self.calculate_room_sizes(resized_fp)
+        
         # Build node metadata to preserve per-room identity and provide stable centroids
         nodes = []
         # Scale factors so centroids can be mapped onto the resized grid for visualization
@@ -696,7 +783,8 @@ class Floorplan:
             "mask": resized_fp[:,:,2].tolist(),
             "graph": self.get_room_connectivity_matrix().tolist(),
             "nodes": nodes,
-            "graph_string": graph_string
+            "graph_string": graph_string,
+            "room_sizes_m2": room_sizes
         }
         
         descriptions = get_descriptions(data, llm, system_message, query, description_count)

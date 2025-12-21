@@ -46,8 +46,8 @@ DATA_PATH = args.data_path
 OUTPUT_PATH = args.output_path
 LOG_DIR = args.log_dir
 
-R_PLAN_MeterToPixel = 16  # 16 pixel are one meter in rPlan   
-# use this to calculate the m2 scale of the rooms on the plan
+# R_PLAN_MeterToPixel = 16  # 16 pixel are one meter in rPlan   
+# # use this to calculate the m2 scale of the rooms on the plan
 
 if __name__ == "__main__":
     if not os.path.exists(OUTPUT_PATH):
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
             output_file = os.path.join(OUTPUT_PATH, f"description_{i}.json")
             with open(output_file, "w") as f:
-                json.dump(data, f)
+                json.dump(data, f, indent=2)
 
             duration = time.perf_counter() - start_time
             size_info = (
