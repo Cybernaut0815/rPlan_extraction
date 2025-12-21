@@ -435,19 +435,29 @@ class Floorplan:
             cx = sum(p.centroid.x for p in entrance_polys) / len(entrance_polys)
             cy = sum(p.centroid.y for p in entrance_polys) / len(entrance_polys)
             self.entrance_centroid = (cx, cy)
-            entrance_node = "entrance"
+            entrance_node = "entrance_0"
             G.add_node(
                 entrance_node,
                 room_type="entrance",
                 centroid=(cx, cy)
             )
 
-            # Connect entrance to all rooms intersecting any exterior door polygon
+            # Process exterior doors - connect to room with largest intersection area
             for door_poly in entrance_polys:
+                intersecting_rooms = []
                 for room_type, offset_polys in offset_contours_dict.items():
                     for j, room_poly in enumerate(offset_polys):
                         if door_poly.intersects(room_poly):
-                            G.add_edge(entrance_node, f"{room_type}_{j}")
+                            intersection = door_poly.intersection(room_poly)
+                            intersecting_rooms.append({
+                                'id': f"{room_type}_{j}",
+                                'area': intersection.area
+                            })
+                
+                # Connect to room with largest intersection area
+                if intersecting_rooms:
+                    intersecting_rooms.sort(key=lambda x: x['area'], reverse=True)
+                    G.add_edge(entrance_node, intersecting_rooms[0]['id'])
                 
         for door_line in self.contours["interior door"]:
             door_poly = self.contours_to_polygons(door_line)
@@ -487,10 +497,23 @@ class Floorplan:
             # Get larger offset for isolated rooms to find potential connections
             larger_offset = offset_distance * 2
             for isolated_node in isolated_nodes:
-                room_type, idx = isolated_node.rsplit('_', 1)
-                idx = int(idx)
+                # Parse room_type and index from node_id
+                parts = isolated_node.rsplit('_', 1)
+                if len(parts) != 2:
+                    # Skip nodes that can't be parsed (shouldn't happen now)
+                    continue
+                room_type, idx_str = parts
+                try:
+                    idx = int(idx_str)
+                except ValueError:
+                    continue
                 
                 # Get the original room polygon and create larger offset
+                if room_type not in offset_contours_dict:
+                    continue
+                # Check bounds before accessing
+                if idx < 0 or idx >= len(offset_contours_dict[room_type]):
+                    continue
                 original_poly = offset_contours_dict[room_type][idx]
                 try:
                     larger_poly = original_poly.buffer(larger_offset, join_style=2)
@@ -531,8 +554,20 @@ class Floorplan:
                 largest_area = 0
                 
                 for node in small_component:
-                    room_type, idx = node.rsplit('_', 1)
-                    idx = int(idx)
+                    # Parse node_id to get room_type and index
+                    parts = node.rsplit('_', 1)
+                    if len(parts) != 2:
+                        continue
+                    room_type, idx_str = parts
+                    try:
+                        idx = int(idx_str)
+                    except ValueError:
+                        continue
+                    if room_type not in offset_contours_dict:
+                        continue
+                    # Check bounds before accessing
+                    if idx < 0 or idx >= len(offset_contours_dict[room_type]):
+                        continue
                     room_poly = offset_contours_dict[room_type][idx]
                     area = room_poly.area
                     
@@ -542,25 +577,53 @@ class Floorplan:
                 
                 if largest_room:
                     # Create larger offset for the largest room
-                    room_type, idx = largest_room.rsplit('_', 1)
-                    idx = int(idx)
-                    original_poly = offset_contours_dict[room_type][idx]
-                    larger_poly = original_poly.buffer(offset_distance * 3, join_style=2)
+                    parts = largest_room.rsplit('_', 1)
+                    if len(parts) != 2:
+                        largest_room = None
+                    else:
+                        room_type, idx_str = parts
+                        try:
+                            idx = int(idx_str)
+                        except ValueError:
+                            largest_room = None
+                        else:
+                            if room_type not in offset_contours_dict:
+                                largest_room = None
+                            else:
+                                original_poly = offset_contours_dict[room_type][idx]
+                                larger_poly = original_poly.buffer(offset_distance * 3, join_style=2)
                     
                     # Find intersections with rooms in the main component
                     best_connection = None
                     max_intersection = 0
                     
-                    for other_node in components[-1]:  # Check against largest component
-                        other_type, other_idx = other_node.rsplit('_', 1)
-                        other_idx = int(other_idx)
-                        other_poly = offset_contours_dict[other_type][other_idx]
+                    if largest_room:
+                        # Find intersections with rooms in the main component
+                        best_connection = None
+                        max_intersection = 0
                         
-                        if larger_poly.intersects(other_poly):
-                            intersection = larger_poly.intersection(other_poly)
-                            if intersection.area > max_intersection:
-                                max_intersection = intersection.area
-                                best_connection = other_node
+                        for other_node in components[-1]:  # Check against largest component
+                            # Parse other_node to get room_type and index
+                            parts = other_node.rsplit('_', 1)
+                            if len(parts) != 2:
+                                continue
+                            other_type, other_idx_str = parts
+                            try:
+                                other_idx = int(other_idx_str)
+                            except ValueError:
+                                continue
+                            if other_type not in offset_contours_dict:
+                                continue
+                            # Check bounds before accessing
+                            if other_idx < 0 or other_idx >= len(offset_contours_dict[other_type]):
+                                continue
+                            other_poly = offset_contours_dict[other_type][other_idx]
+                            
+                            if larger_poly.intersects(other_poly):
+                                intersection = larger_poly.intersection(other_poly)
+                                if intersection.area > max_intersection:
+                                    max_intersection = intersection.area
+                                    best_connection = other_node
                     
                     if best_connection:
                         G.add_edge(largest_room, best_connection)
@@ -838,27 +901,19 @@ class Floorplan:
         """Extract room connectivity as JSON-serializable dict with adjacency list, room counts, and entrance info."""
         G = self.room_connectivity_graph
         adjacency = {}
-        entrance_rooms = []
-        entrances = []
         
         for node, data in G.nodes(data=True):
             neighbors = list(G.neighbors(node))
             if neighbors:  # Only include nodes with connections
                 adjacency[node] = neighbors
-            
-            # Track entrance node (single node named "entrance")
-            if data.get("room_type") == "entrance" or node == "entrance":
-                entrances.append(node)
-                # Find rooms connected to this entrance
-                for neighbor in neighbors:
-                    if neighbor != node and neighbor not in entrances and neighbor not in entrance_rooms:
-                        entrance_rooms.append(neighbor)
+        
+        # Count entrance nodes
+        entrance_count = sum(1 for node, data in G.nodes(data=True) if data.get("room_type") == "entrance")
         
         return {
             "room_counts": self.room_types_count,
-            "adjacency": adjacency,
-            "entrances": entrances,
-            "entrance_rooms": entrance_rooms
+            "entrance_count": entrance_count,
+            "adjacency": adjacency
         }
 
     def graph_to_string(self):
