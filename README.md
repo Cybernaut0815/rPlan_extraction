@@ -74,7 +74,7 @@ Other Datatset:
 
 ## Examples
 
-The connection graph extraction
-![Graph extraction](./media/images/original.png)
 Visualization from an extracted datapoint downsized to 64x64
 ![Datapoint loaded](./media/images/resized.png)
+The connection graph extraction
+![Graph extraction](./media/images/original.png)
