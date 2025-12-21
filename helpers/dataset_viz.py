@@ -37,6 +37,21 @@ def load_and_visualize_datapoint(index, output_dir):
     
     for idx, node in enumerate(nodes):
         node_id = node["id"]
+        room_type = node.get("room_type")
+
+        # For entrance, always use centroid-based position (do not use instance mask)
+        if room_type == "entrance":
+            if node.get("centroid_resized"):
+                cx, cy = node["centroid_resized"]
+                pos[node_id] = (cx, cy)
+            elif node.get("centroid"):
+                cx, cy = node["centroid"]
+                scale_x = grid_w / data["original_dimensions"][1]
+                scale_y = grid_h / data["original_dimensions"][0]
+                pos[node_id] = (cx * scale_x, cy * scale_y)
+            continue
+
+        # Default: use instance mask, then fall back to centroid-based position
         instance_id = node.get("instance_id", idx)
         node_mask = instances == instance_id
 

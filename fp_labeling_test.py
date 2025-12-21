@@ -169,7 +169,7 @@ importlib.reload(helpers.dataset_viz)
 from helpers.dataset_viz import load_and_visualize_datapoint
 
 # Now visualize
-load_and_visualize_datapoint(1, OUTPUT_PATH)
+load_and_visualize_datapoint(9, OUTPUT_PATH)
 
 
 # %%

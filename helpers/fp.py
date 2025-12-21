@@ -96,9 +96,12 @@ class Floorplan:
     
     def get_room_types_count(self):
         count_dict = {}
-        # Get room types from graph nodes
+        # Get room types from graph nodes (exclude entrance nodes)
         for node, data in self.room_connectivity_graph.nodes(data=True):
             room_type = data['room_type']
+            # Skip entrance nodes (exterior doors)
+            if room_type == 'entrance':
+                continue
             count_dict[room_type] = count_dict.get(room_type, 0) + 1
 
         return count_dict
@@ -134,6 +137,10 @@ class Floorplan:
         door_contours = self.interior_doors_outlines()
         self.contours["interior door"] = door_contours
         
+        # Add exterior doors (front door)
+        exterior_door_contours = self.exterior_doors_outlines()
+        self.contours["exterior door"] = exterior_door_contours
+        
         return self.contours
     
     
@@ -141,6 +148,16 @@ class Floorplan:
         key = "interior door"
         value = self.info.all_types[key]
         # Create mask for current room type 
+        mask = (self.room_types_channel == value).astype(np.uint8)
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        return contours
+    
+    
+    def exterior_doors_outlines(self):
+        key = "front door"
+        value = self.info.all_types[key]
+        # Create mask for exterior doors
         mask = (self.room_types_channel == value).astype(np.uint8)
         # Find contours in the mask
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -215,7 +232,11 @@ class Floorplan:
         room_entries = []  # list of dicts: {room_type, original_poly, offset_geom, prepared_offset}
 
         for room_type, contour_list in self.contours.items():
+            # Skip interior doors; entrance/exterior door handled only for centroid
             if room_type == "interior door":
+                continue
+            # Skip exterior door polygons from filling rooms but keep centroid elsewhere
+            if room_type in {"exterior door", "entrance"}:
                 continue
 
             for c in contour_list:
@@ -363,6 +384,8 @@ class Floorplan:
     def offset_room_contours(self, offset_distance=2.0):
         room_contours = self.contours.copy()
         room_contours.pop("interior door")  # Remove interior doors since we handle them separately
+        # Remove exterior doors from room contour offsetting (handled separately as entrance node)
+        room_contours.pop("exterior door", None)
 
         offset_contours_dict = {}
         
@@ -391,6 +414,8 @@ class Floorplan:
         G = nx.Graph()
         offset_contours_dict = self.offset_room_contours(offset_distance)
         for room_type, offset_polys in offset_contours_dict.items():
+            if room_type in {"exterior door", "entrance"}:
+                continue
             for i, poly in enumerate(offset_polys):
                 node_id = f"{room_type}_{i}"
                 # Get centroid coordinates
@@ -398,6 +423,31 @@ class Floorplan:
                 G.add_node(node_id, 
                             room_type=room_type,
                             centroid=(centroid.x, centroid.y))
+        
+        # Add a single entrance node (aggregating all exterior doors)
+        entrance_polys = []
+        for door_line in self.contours["exterior door"]:
+            door_poly = self.contours_to_polygons(door_line)
+            if door_poly is not None:
+                entrance_polys.append(door_poly)
+
+        if entrance_polys:
+            cx = sum(p.centroid.x for p in entrance_polys) / len(entrance_polys)
+            cy = sum(p.centroid.y for p in entrance_polys) / len(entrance_polys)
+            self.entrance_centroid = (cx, cy)
+            entrance_node = "entrance"
+            G.add_node(
+                entrance_node,
+                room_type="entrance",
+                centroid=(cx, cy)
+            )
+
+            # Connect entrance to all rooms intersecting any exterior door polygon
+            for door_poly in entrance_polys:
+                for room_type, offset_polys in offset_contours_dict.items():
+                    for j, room_poly in enumerate(offset_polys):
+                        if door_poly.intersects(room_poly):
+                            G.add_edge(entrance_node, f"{room_type}_{j}")
                 
         for door_line in self.contours["interior door"]:
             door_poly = self.contours_to_polygons(door_line)
@@ -561,9 +611,10 @@ class Floorplan:
     
     
     def draw_contours(self, offset=False):
-        """Draw room contours with optional offset and interior door markers."""
+        """Draw room contours with optional offset and door markers."""
         contours_dict = self.offset_room_contours(offset_distance=self.wall_width if offset else 0)
-        door_contours = [self.contours_to_polygons(c) for c in self.contours["interior door"]]
+        interior_door_contours = [self.contours_to_polygons(c) for c in self.contours["interior door"]]
+        exterior_door_contours = [self.contours_to_polygons(c) for c in self.contours["exterior door"]]
         
         plt.figure(figsize=(10, 10))
         colors = self.info.get_type_color()
@@ -573,10 +624,15 @@ class Floorplan:
                 x, y = poly.exterior.xy
                 plt.plot(x, y, color=color, label=room_type)
 
-        for door_contour in door_contours:
+        for door_contour in interior_door_contours:
             if door_contour is not None:
                 x, y = door_contour.exterior.xy
                 plt.plot(x, y, color='black', label='interior door', linewidth=2)
+        
+        # Draw entrance centroid as a single marker (no polygon outline)
+        if hasattr(self, "entrance_centroid") and self.entrance_centroid is not None:
+            cx, cy = self.entrance_centroid
+            plt.scatter([cx], [cy], color='red', label='entrance', s=50, marker='o')
 
         handles, labels = plt.gca().get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
@@ -716,8 +772,12 @@ class Floorplan:
         # Build mapping from instance_id to node_id from the connectivity graph
         instance_to_node = {}
         for node_id, data in self.room_connectivity_graph.nodes(data=True):
+            # Skip entrance/door nodes (no instance index)
+            room_type = data.get('room_type')
+            if room_type == 'entrance' or '_' not in node_id:
+                continue
+
             # Extract instance index from node_id (e.g., "living room_0" -> 0)
-            room_type = data['room_type']
             idx = int(node_id.rsplit('_', 1)[1])
             
             # Find which original instance this corresponds to
@@ -775,17 +835,30 @@ class Floorplan:
         return result
 
     def get_room_connectivity(self):
-        """Extract room connectivity as JSON-serializable dict with adjacency list and room counts."""
+        """Extract room connectivity as JSON-serializable dict with adjacency list, room counts, and entrance info."""
         G = self.room_connectivity_graph
         adjacency = {}
-        for node in G.nodes():
+        entrance_rooms = []
+        entrances = []
+        
+        for node, data in G.nodes(data=True):
             neighbors = list(G.neighbors(node))
             if neighbors:  # Only include nodes with connections
                 adjacency[node] = neighbors
+            
+            # Track entrance node (single node named "entrance")
+            if data.get("room_type") == "entrance" or node == "entrance":
+                entrances.append(node)
+                # Find rooms connected to this entrance
+                for neighbor in neighbors:
+                    if neighbor != node and neighbor not in entrances and neighbor not in entrance_rooms:
+                        entrance_rooms.append(neighbor)
         
         return {
             "room_counts": self.room_types_count,
-            "adjacency": adjacency
+            "adjacency": adjacency,
+            "entrances": entrances,
+            "entrance_rooms": entrance_rooms
         }
 
     def graph_to_string(self):
