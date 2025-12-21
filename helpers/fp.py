@@ -669,6 +669,125 @@ class Floorplan:
             "adjusted_meter_to_pixel": round(np.sqrt(pixel_area_per_m2_resized), 6)
         }
 
+    def calculate_room_sizes_original(self):
+        """Calculate per-instance areas (m2) directly on the original image without resizing."""
+        instances = self.distinct_rooms_channel.astype(np.int32)
+        room_types = self.room_types_channel.astype(np.int32)
+        unique_instances = np.unique(instances)
+
+        pixel_area_per_m2_original = self.meter_to_pixel ** 2
+        original_sizes = {}
+
+        for instance_id in unique_instances:
+            if instance_id == 0:
+                continue  # background
+
+            mask = instances == instance_id
+            if not np.any(mask):
+                continue
+
+            room_type_vals = room_types[mask]
+            room_type_value = np.bincount(room_type_vals).argmax()
+
+            # Skip non-room areas (labels above 11 are structural/external)
+            if room_type_value > 11:
+                continue
+
+            pixel_count = int(np.sum(mask))
+            size_m2 = pixel_count / pixel_area_per_m2_original
+            original_sizes[int(instance_id)] = round(size_m2, 1)
+
+        return {
+            "original_sizes": original_sizes,
+            "pixel_area_per_m2_original": pixel_area_per_m2_original,
+            "meter_to_pixel": self.meter_to_pixel,
+        }
+
+    def get_original_room_sizes(self):
+        """Convenience wrapper returning only the original instance sizes (m2)."""
+        return self.calculate_room_sizes_original().get("original_sizes", {})
+
+    def get_original_room_sizes_by_node(self):
+        """Return original sizes keyed by node ID (matching connectivity graph): {node_id: size_m2}."""
+        sizes = self.calculate_room_sizes_original().get("original_sizes", {})
+        instances = self.distinct_rooms_channel.astype(np.int32)
+        room_types = self.room_types_channel.astype(np.int32)
+        
+        # Build mapping from instance_id to node_id from the connectivity graph
+        instance_to_node = {}
+        for node_id, data in self.room_connectivity_graph.nodes(data=True):
+            # Extract instance index from node_id (e.g., "living room_0" -> 0)
+            room_type = data['room_type']
+            idx = int(node_id.rsplit('_', 1)[1])
+            
+            # Find which original instance this corresponds to
+            # Get all instances of this room type
+            instances_of_type = []
+            for inst_id, size in sizes.items():
+                mask = instances == int(inst_id)
+                if not np.any(mask):
+                    continue
+                room_type_vals = room_types[mask]
+                room_type_value = np.bincount(room_type_vals).argmax()
+                
+                # Check if this instance matches the room type
+                for rt_name, rt_val in self.info.room_types.items():
+                    if rt_val == room_type_value and rt_name == room_type:
+                        instances_of_type.append((inst_id, size))
+                        break
+            
+            # Map by index
+            if idx < len(instances_of_type):
+                instance_to_node[instances_of_type[idx][0]] = node_id
+        
+        # Build result with node IDs
+        result = {}
+        for inst_id, size in sizes.items():
+            if inst_id in instance_to_node:
+                result[instance_to_node[inst_id]] = size
+        
+        return result
+
+    def get_original_room_sizes_by_type(self):
+        """Return original sizes grouped by room type name: {room_type: [sizes...]}."""
+        sizes = self.calculate_room_sizes_original().get("original_sizes", {})
+        instances = self.distinct_rooms_channel.astype(np.int32)
+        room_types = self.room_types_channel.astype(np.int32)
+        result = {}
+
+        for instance_id, size_m2 in sizes.items():
+            mask = instances == int(instance_id)
+            if not np.any(mask):
+                continue
+            room_type_vals = room_types[mask]
+            room_type_value = np.bincount(room_type_vals).argmax()
+            # Map numeric type to name; skip if unknown
+            name = None
+            for rt_name, rt_val in self.info.room_types.items():
+                if rt_val == room_type_value:
+                    name = rt_name
+                    break
+            if name is None:
+                continue
+
+            result.setdefault(name, []).append(size_m2)
+
+        return result
+
+    def get_room_connectivity(self):
+        """Extract room connectivity as JSON-serializable dict with adjacency list and room counts."""
+        G = self.room_connectivity_graph
+        adjacency = {}
+        for node in G.nodes():
+            neighbors = list(G.neighbors(node))
+            if neighbors:  # Only include nodes with connections
+                adjacency[node] = neighbors
+        
+        return {
+            "room_counts": self.room_types_count,
+            "adjacency": adjacency
+        }
+
     def graph_to_string(self):
         G = self.room_connectivity_graph
         

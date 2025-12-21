@@ -41,7 +41,7 @@ After the code is ready to use for additional extraction.
 Test run with the first 10 plans:
 
 ```bash
-python run_extraction.py --data_path D:/Datasets/rPlan/dataset/floorplan_dataset --output_path ./output --max_index 10 --model gpt-4 --list_models
+python run_full_extraction.py --data_path D:/Datasets/rPlan/dataset/floorplan_dataset --output_path ./output --max_index 10 --model gpt-4 --list_models
 ```
 
 ## Implemented
