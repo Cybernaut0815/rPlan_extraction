@@ -1,0 +1,432 @@
+{
+  "small_rooms": {
+    "description": "Floorplans with rooms \u2264 1 m\u00b2",
+    "count": 33,
+    "results": [
+      {
+        "file": "398.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "6462.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.4
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "12469.png",
+        "matching_rooms": [
+          {
+            "room_name": "second room_1",
+            "room_type": "second room",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "19876.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "20006.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "20268.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "25734.png",
+        "matching_rooms": [
+          {
+            "room_name": "dining room_0",
+            "room_type": "dining room",
+            "size": 0.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "29521.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_1",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "29818.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "29921.png",
+        "matching_rooms": [
+          {
+            "room_name": "master room_1",
+            "room_type": "master room",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "29930.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "31023.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_1",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "33169.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.7
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "36206.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "44635.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "46058.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_1",
+            "room_type": "kitchen",
+            "size": 0.2
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "46652.png",
+        "matching_rooms": [
+          {
+            "room_name": "master room_1",
+            "room_type": "master room",
+            "size": 0.6
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "47097.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.5
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "54731.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.2
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "59659.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "63435.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "65446.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_1",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "65528.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.8
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "66223.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.9
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "69590.png",
+        "matching_rooms": [
+          {
+            "room_name": "master room_1",
+            "room_type": "master room",
+            "size": 0.6
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "70799.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_1",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "72145.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "75551.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 0.8
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "76609.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "78907.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "79341.png",
+        "matching_rooms": [
+          {
+            "room_name": "master room_1",
+            "room_type": "master room",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "79424.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_0",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "80348.png",
+        "matching_rooms": [
+          {
+            "room_name": "kitchen_1",
+            "room_type": "kitchen",
+            "size": 1.0
+          }
+        ],
+        "total_matching": 1
+      }
+    ]
+  },
+  "zero_rooms": {
+    "description": "Floorplans with rooms of size 0 m\u00b2",
+    "count": 5,
+    "results": [
+      {
+        "file": "22482.png",
+        "matching_rooms": [
+          {
+            "room_name": "bathroom_1",
+            "room_type": "bathroom",
+            "size": 0.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "25734.png",
+        "matching_rooms": [
+          {
+            "room_name": "dining room_0",
+            "room_type": "dining room",
+            "size": 0.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "28701.png",
+        "matching_rooms": [
+          {
+            "room_name": "bathroom_1",
+            "room_type": "bathroom",
+            "size": 0.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "37917.png",
+        "matching_rooms": [
+          {
+            "room_name": "storage_0",
+            "room_type": "storage",
+            "size": 0.0
+          }
+        ],
+        "total_matching": 1
+      },
+      {
+        "file": "39296.png",
+        "matching_rooms": [
+          {
+            "room_name": "storage_0",
+            "room_type": "storage",
+            "size": 0.0
+          }
+        ],
+        "total_matching": 1
+      }
+    ]
+  }
+}

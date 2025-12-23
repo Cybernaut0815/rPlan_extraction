@@ -1,0 +1,123 @@
+{
+  "dataset_info": {
+    "source": "D:/Datasets/rPlan/dataset/floorplan_dataset",
+    "floorplan_count": 80787
+  },
+  "total_sizes": {
+    "min": 40.7,
+    "max": 89.2,
+    "mean": 60.8150544023172,
+    "median": 59.3,
+    "std": 9.120474200098794
+  },
+  "room_counts": {
+    "min": 3,
+    "max": 8,
+    "mean": 6.733942342208524,
+    "median": 7.0,
+    "std": 0.9123477604123439
+  },
+  "room_type_stats": {
+    "master room": {
+      "min": 1.2,
+      "max": 33.6,
+      "mean": 11.086752588210437,
+      "median": 10.7,
+      "std": 2.2716971336346288,
+      "count": 80461
+    },
+    "bathroom": {
+      "min": 1.1,
+      "max": 18.3,
+      "mean": 3.2087985712516005,
+      "median": 3.1,
+      "std": 1.036758795772866,
+      "count": 96868
+    },
+    "living room": {
+      "min": 12.8,
+      "max": 48.9,
+      "mean": 25.554661022194164,
+      "median": 24.9,
+      "std": 4.960665077084647,
+      "count": 80787
+    },
+    "second room": {
+      "min": 1.5,
+      "max": 24.3,
+      "mean": 8.44544181627244,
+      "median": 8.2,
+      "std": 2.002777451117689,
+      "count": 99985
+    },
+    "kitchen": {
+      "min": 1.1,
+      "max": 23.3,
+      "mean": 4.562799073835864,
+      "median": 4.3,
+      "std": 1.4393870313448613,
+      "count": 77740
+    },
+    "balcony": {
+      "min": 1.1,
+      "max": 36.7,
+      "mean": 3.51494160480401,
+      "median": 3.3,
+      "std": 1.7085646118610132,
+      "count": 84596
+    },
+    "child room": {
+      "min": 2.1,
+      "max": 20.5,
+      "mean": 7.3732179226069245,
+      "median": 7.3,
+      "std": 1.9235756312474126,
+      "count": 3928
+    },
+    "guest room": {
+      "min": 2.5,
+      "max": 19.7,
+      "mean": 7.641860465116279,
+      "median": 7.5,
+      "std": 2.046452694711707,
+      "count": 860
+    },
+    "study room": {
+      "min": 1.1,
+      "max": 30.9,
+      "mean": 6.542729396062729,
+      "median": 6.4,
+      "std": 1.847194490391325,
+      "count": 14985
+    },
+    "dining room": {
+      "min": 1.4,
+      "max": 27.7,
+      "mean": 7.061479786422577,
+      "median": 6.5,
+      "std": 3.0241243009090826,
+      "count": 1311
+    },
+    "storage": {
+      "min": 1.1,
+      "max": 18.0,
+      "mean": 2.5607056936647954,
+      "median": 2.1,
+      "std": 1.5419487401964451,
+      "count": 2494
+    }
+  },
+  "room_type_total_counts": {
+    "master room": 80461,
+    "bathroom": 96868,
+    "living room": 80787,
+    "second room": 99985,
+    "kitchen": 77740,
+    "balcony": 84596,
+    "child room": 3928,
+    "guest room": 860,
+    "study room": 14985,
+    "dining room": 1311,
+    "storage": 2494
+  }
+}
