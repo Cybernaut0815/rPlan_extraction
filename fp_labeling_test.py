@@ -23,12 +23,11 @@ load_dotenv(override=True)
 
 # %%
 
-DATA_PATH = r"D:\Datasets\rPlan\dataset\floorplan_dataset"
-OUTPUT_PATH = r"D:\Datasets\rPlan\dataset\dataset\output_first_100"
+DATA_PATH = r"E:\Datasets\rPlan\dataset\floorplan_dataset"
+OUTPUT_PATH = r"E:\Datasets\rPlan\dataset\dataset\output_first_100"
 
 if not os.path.exists(OUTPUT_PATH):
     os.makedirs(OUTPUT_PATH)
-
 
 
 #%%
@@ -36,7 +35,7 @@ if not os.path.exists(OUTPUT_PATH):
 paths = load_image_paths(DATA_PATH)
 # open a test image
 if paths:
-    test_path = os.path.join(DATA_PATH, paths[57])
+    test_path = os.path.join(DATA_PATH, paths[176])
     img = Image.open(test_path)
 else:
     print("No image files found in directory")
@@ -104,10 +103,10 @@ import random as rand
 random_path = os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)])
 test_fp = Floorplan(random_path, wall_width=wall_width)
 
-size = 64
+size = 28
 
-resized_fp_pixels = test_fp.pixel_based_resize(64)
-resized_fp_outlines = test_fp.outline_based_resize(64)
+resized_fp_pixels = test_fp.pixel_based_resize(size)
+resized_fp_outlines = test_fp.outline_based_resize(size)
 
 test_fp.draw_room_connectivity_on_plan()
 
