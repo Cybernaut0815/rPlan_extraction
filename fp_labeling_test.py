@@ -36,7 +36,7 @@ if not os.path.exists(OUTPUT_PATH):
 paths = load_image_paths(DATA_PATH)
 # open a test image
 if paths:
-    test_path = os.path.join(DATA_PATH, paths[3])
+    test_path = os.path.join(DATA_PATH, paths[57])
     img = Image.open(test_path)
 else:
     print("No image files found in directory")

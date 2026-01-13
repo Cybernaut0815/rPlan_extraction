@@ -4,14 +4,67 @@ import os
 
 import matplotlib.pyplot as plt
 from PIL import Image
+import networkx as nx
 
-from typing import Dict
+from typing import Dict, Optional, Tuple
 from pathlib import Path
 from collections import defaultdict
 
 SIZES_PATH = r".\dataset_stats\sizes.json"
 # Rooms with size <= this threshold (m²) are excluded from stats
 MIN_VALID_ROOM_SIZE = 1.0
+# Connectivity graphs are filtered using statistical threshold (mean occurrence by default)
+GRAPH_FILTER_MODE = 'mean'  # 'mean', 'median', or a specific integer value
+
+
+def _base_room_type(name: str) -> str:
+    """Strip index suffix from room name (e.g., bedroom_1 -> bedroom)."""
+    return name.split('_')[0] if '_' in name else name
+
+
+def build_graph_signature(connectivity: Dict) -> Optional[Dict[str, object]]:
+    """Create a canonical signature for a connectivity graph (type-level, undirected).
+
+    The signature ignores per-room indices and counts edges by room types, so graphs
+    that only differ by numbering share the same signature.
+    """
+    adjacency = connectivity.get('adjacency') or {}
+    if not adjacency:
+        return None
+
+    # Include entrance nodes as their own type
+    node_counts = defaultdict(int, connectivity.get('room_counts') or {})
+    node_counts['entrance'] += connectivity.get('entrance_count', 0)
+
+    edge_counts = defaultdict(int)
+    seen_edges = set()
+
+    for node, neighbors in adjacency.items():
+        for neighbor in neighbors:
+            edge = tuple(sorted((node, neighbor)))
+            if edge in seen_edges:
+                continue
+            seen_edges.add(edge)
+
+            type_a = _base_room_type(edge[0])
+            type_b = _base_room_type(edge[1])
+            edge_key: Tuple[str, str] = tuple(sorted((type_a, type_b)))
+            edge_counts[edge_key] += 1
+
+    nodes_part = sorted(node_counts.items())
+    edges_part = sorted(
+        ({"edge": f"{a}--{b}", "count": count} for (a, b), count in edge_counts.items()),
+        key=lambda item: item["edge"],
+    )
+
+    signature_payload = {"nodes": nodes_part, "edges": edges_part}
+    signature_str = json.dumps(signature_payload, sort_keys=True)
+
+    return {
+        "signature": signature_str,
+        "nodes": nodes_part,
+        "edges": edges_part,
+    }
 
 def extract_dataset_stats(json_path: Path) -> dict:
     """
@@ -33,10 +86,27 @@ def extract_dataset_stats(json_path: Path) -> dict:
     total_sizes_list = []  # List of total sizes per floorplan (valid rooms only)
     room_counts_list = []  # List of total valid room counts per floorplan
     room_type_counts = defaultdict(int)  # {room_type: total_valid_count_across_dataset}
+    graph_signature_counts = defaultdict(int)
+    graph_signature_examples: Dict[str, Dict] = {}
+    graphs_processed = 0
     
     # Process each floorplan (excluding zero/small rooms from all stats)
     for item in data['items']:
         room_sizes = item['room_sizes_m2']
+
+        # Build connectivity graph signature (independent of size filtering)
+        connectivity = item.get('connectivity')
+        graph_sig_data = build_graph_signature(connectivity) if connectivity else None
+        if graph_sig_data:
+            graphs_processed += 1
+            sig = graph_sig_data['signature']
+            graph_signature_counts[sig] += 1
+            if sig not in graph_signature_examples:
+                graph_signature_examples[sig] = {
+                    'example_file': item.get('file'),
+                    'nodes': graph_sig_data['nodes'],
+                    'edges': graph_sig_data['edges']
+                }
 
         # Keep only valid rooms
         valid_items = [(rn, sz) for rn, sz in room_sizes.items() if sz > MIN_VALID_ROOM_SIZE]
@@ -113,6 +183,45 @@ def extract_dataset_stats(json_path: Path) -> dict:
             'std': float(np.std(room_counts_list))
         }
 
+    sorted_graphs = sorted(graph_signature_counts.items(), key=lambda kv: kv[1], reverse=True)
+    
+    # Calculate filter threshold based on mode
+    occurrence_values = list(graph_signature_counts.values())
+    if GRAPH_FILTER_MODE == 'mean':
+        filter_threshold = int(np.mean(occurrence_values)) if occurrence_values else 1
+        threshold_label = f'mean ({filter_threshold})'
+    elif GRAPH_FILTER_MODE == 'median':
+        filter_threshold = int(np.median(occurrence_values)) if occurrence_values else 1
+        threshold_label = f'median ({filter_threshold})'
+    else:
+        filter_threshold = int(GRAPH_FILTER_MODE)
+        threshold_label = f'{filter_threshold}'
+    
+    # Filter graphs by occurrence threshold
+    filtered_sorted_graphs = [(sig, count) for sig, count in sorted_graphs if count >= filter_threshold]
+    
+    top_graphs = [
+        {
+            'signature': sig,
+            'count': count,
+            'example_file': graph_signature_examples.get(sig, {}).get('example_file'),
+            'nodes': graph_signature_examples.get(sig, {}).get('nodes'),
+            'edges': graph_signature_examples.get(sig, {}).get('edges')
+        }
+        for sig, count in filtered_sorted_graphs[:20]
+    ]
+
+    connectivity_stats = {
+        'total_with_connectivity': graphs_processed,
+        'unique_graphs': len(graph_signature_counts),
+        'unique_graphs_filtered': len(filtered_sorted_graphs),
+        'filter_threshold': filter_threshold,
+        'filter_threshold_label': threshold_label,
+        'top_graphs': top_graphs,
+        'counts': list(graph_signature_counts.values()),
+        'filtered_counts': [count for count in graph_signature_counts.values() if count >= filter_threshold]
+    }
+
     stats = {
         'dataset_info': {
             'source': data.get('dataset', 'unknown'),
@@ -121,7 +230,8 @@ def extract_dataset_stats(json_path: Path) -> dict:
         'total_sizes': total_sizes_block,
         'room_counts': room_counts_block,
         'room_type_stats': room_type_stats,
-        'room_type_total_counts': dict(room_type_counts)
+        'room_type_total_counts': dict(room_type_counts),
+        'connectivity_graphs': connectivity_stats
     }
     
     # Save statistics to stats.json
@@ -136,13 +246,39 @@ def extract_dataset_stats(json_path: Path) -> dict:
             room_type: {k: v for k, v in room_stats.items() if k != 'sizes'}
             for room_type, room_stats in stats['room_type_stats'].items()
         },
-        'room_type_total_counts': stats['room_type_total_counts']
+        'room_type_total_counts': stats['room_type_total_counts'],
+        'connectivity_graphs': {
+            'total_with_connectivity': stats['connectivity_graphs']['total_with_connectivity'],
+            'unique_graphs': stats['connectivity_graphs']['unique_graphs'],
+            'top_graphs': stats['connectivity_graphs']['top_graphs']
+        }
     }
     
     with open(stats_path, 'w', encoding='utf-8') as f:
         json.dump(stats_to_save, f, indent=2)
     
     print(f"Statistics saved to: {stats_path}")
+
+    graph_stats_path = os.path.join(os.path.dirname(json_path), 'graph_stats.json')
+    graph_full_dump = [
+        {
+            'signature': sig,
+            'count': count,
+            'example_file': graph_signature_examples.get(sig, {}).get('example_file'),
+            'nodes': graph_signature_examples.get(sig, {}).get('nodes'),
+            'edges': graph_signature_examples.get(sig, {}).get('edges')
+        }
+        for sig, count in sorted_graphs
+    ]
+
+    with open(graph_stats_path, 'w', encoding='utf-8') as f:
+        json.dump({
+            'total_with_connectivity': stats['connectivity_graphs']['total_with_connectivity'],
+            'unique_graphs': stats['connectivity_graphs']['unique_graphs'],
+            'graphs': graph_full_dump
+        }, f, indent=2)
+
+    print(f"Graph statistics saved to: {graph_stats_path}")
     
     return stats
 
@@ -276,6 +412,212 @@ def plot_distributions(stats: Dict) -> None:
     plt.savefig(os.path.join(plots_dir, 'all_room_types_combined.png'), dpi=150)
     plt.close()
     print(f"Saved: all_room_types_combined.png")
+
+    # 6. Connectivity graph occurrence plot (sorted, with horizontal threshold)
+    graph_counts = stats.get('connectivity_graphs', {}).get('counts') or []
+    if graph_counts:
+        unique_graphs = stats['connectivity_graphs']['unique_graphs']
+        unique_graphs_filtered = stats['connectivity_graphs']['unique_graphs_filtered']
+        total_graphs = stats['connectivity_graphs']['total_with_connectivity']
+        singleton_graphs = sum(1 for count in graph_counts if count == 1)
+        threshold_label = stats['connectivity_graphs']['filter_threshold_label']
+        filter_threshold = stats['connectivity_graphs']['filter_threshold']
+        
+        # Sort counts in descending order
+        sorted_counts = sorted(graph_counts, reverse=True)
+        
+        plt.figure(figsize=(14, 6))
+        x = range(len(sorted_counts))
+        
+        # Color bars based on whether they're above/below threshold
+        colors = ['seagreen' if c >= filter_threshold else 'lightgray' for c in sorted_counts]
+        plt.bar(x, sorted_counts, color=colors, edgecolor='none', width=1.0)
+        
+        # Horizontal threshold line
+        plt.axhline(filter_threshold, color='red', linestyle='--', linewidth=2, label=f'Threshold: {threshold_label}')
+        
+        plt.xlabel('Unique Connectivity Graphs (sorted by occurrence)')
+        plt.ylabel('Occurrence Count')
+        plt.title('Connectivity Graph Occurrences (Sorted)')
+        plt.legend(fontsize=11, loc='upper right')
+        
+        # Add text annotation
+        plt.text(0.02, 0.98, f'Total Unique: {unique_graphs:,}\nAbove Threshold: {unique_graphs_filtered:,}\nBelow Threshold: {unique_graphs - unique_graphs_filtered:,}\nSingletons: {singleton_graphs:,}',
+                transform=plt.gca().transAxes, fontsize=10, verticalalignment='top',
+                horizontalalignment='left', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+        
+        plt.grid(True, alpha=0.3, axis='y')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, 'connectivity_graph_frequency_distribution.png'), dpi=150)
+        plt.close()
+        print(f"Saved: connectivity_graph_frequency_distribution.png")
+        
+        # 6b. Connectivity graph occurrence plot - only graphs above threshold
+        threshold_value = stats['connectivity_graphs']['filter_threshold']
+        filtered_counts = [count for count in graph_counts if count >= threshold_value]
+        if filtered_counts:
+            threshold_label = stats['connectivity_graphs']['filter_threshold_label']
+            
+            # Sort in descending order
+            sorted_filtered = sorted(filtered_counts, reverse=True)
+            
+            plt.figure(figsize=(14, 6))
+            x = range(len(sorted_filtered))
+            plt.bar(x, sorted_filtered, color='teal', edgecolor='none', width=1.0)
+            
+            # Horizontal threshold line
+            plt.axhline(threshold_value, color='red', linestyle='--', linewidth=2, label=f'Threshold: {threshold_label}')
+            
+            plt.xlabel('Unique Connectivity Graphs (sorted by occurrence, filtered)')
+            plt.ylabel('Occurrence Count')
+            plt.title(f'Connectivity Graph Occurrences (Only ≥{threshold_label})')
+            plt.legend(fontsize=11, loc='upper right')
+            
+            # Add text annotation
+            plt.text(0.02, 0.98, f'Graphs Above Threshold: {len(filtered_counts):,}\nExcluded (below): {len(graph_counts) - len(filtered_counts):,}\nTotal Unique: {unique_graphs:,}',
+                    transform=plt.gca().transAxes, fontsize=10, verticalalignment='top',
+                    horizontalalignment='left', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+            
+            plt.grid(True, alpha=0.3, axis='y')
+            plt.tight_layout()
+            plt.savefig(os.path.join(plots_dir, 'connectivity_graph_frequency_distribution_filtered.png'), dpi=150)
+            plt.close()
+            print(f"Saved: connectivity_graph_frequency_distribution_filtered.png")
+
+    # 7. Top connectivity graphs bar chart
+    top_graphs = stats.get('connectivity_graphs', {}).get('top_graphs') or []
+    if top_graphs:
+        labels = []
+        counts = []
+        for idx, g in enumerate(top_graphs, 1):
+            label = g.get('example_file') or f"G{idx}"
+            if len(label) > 18:
+                label = label[:15] + '...'
+            labels.append(label)
+            counts.append(g.get('count', 0))
+
+        unique_graphs = stats['connectivity_graphs']['unique_graphs']
+        unique_graphs_filtered = stats['connectivity_graphs']['unique_graphs_filtered']
+        total_graphs = stats['connectivity_graphs']['total_with_connectivity']
+        graph_counts = stats.get('connectivity_graphs', {}).get('counts') or []
+        threshold_label = stats['connectivity_graphs']['filter_threshold_label']
+        
+        plt.figure(figsize=(12, 6))
+        bars = plt.bar(range(len(counts)), counts, color='slateblue', alpha=0.85, edgecolor='black')
+        plt.xlabel('Top Unique Connectivity Graphs (example file)')
+        plt.ylabel('Occurrences')
+        plt.title('Top Connectivity Graphs by Frequency')
+        plt.xticks(range(len(labels)), labels, rotation=45, ha='right')
+        plt.grid(True, alpha=0.25, axis='y')
+
+        # Annotate bars with counts for quick read
+        for bar, c in zip(bars, counts):
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width() / 2, height + max(counts) * 0.01, f"{int(c)}",
+                     ha='center', va='bottom', fontsize=8)
+        
+        # Add text annotation with unique graph count
+        plt.text(0.98, 0.98, f'Total Unique: {unique_graphs:,}\nFiltered (≥{threshold_label}): {unique_graphs_filtered:,}\nTotal Graphs: {total_graphs:,}',
+                transform=plt.gca().transAxes, fontsize=10, verticalalignment='top',
+                horizontalalignment='right', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, 'connectivity_graph_top_counts.png'), dpi=150)
+        plt.close()
+        print(f"Saved: connectivity_graph_top_counts.png")
+
+    # 8. Visualize top 10 connectivity graphs as network diagrams
+    # Need to load the actual adjacency data from sizes.json
+    top_graphs = stats.get('connectivity_graphs', {}).get('top_graphs') or []
+    if top_graphs:
+        # Load sizes.json to get actual connectivity data
+        sizes_json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sizes.json')
+        with open(sizes_json_path, 'r', encoding='utf-8') as f:
+            sizes_data = json.load(f)
+        
+        # Create a mapping from filename to connectivity
+        file_to_connectivity = {}
+        for item in sizes_data['items']:
+            file_to_connectivity[item['file']] = item.get('connectivity', {})
+        
+        # Create a combined figure with 2 rows x 5 columns for top 10 graphs
+        num_to_plot = min(10, len(top_graphs))
+        fig, axes = plt.subplots(2, 5, figsize=(20, 8))
+        axes = axes.flatten()
+        
+        for idx in range(num_to_plot):
+            graph_info = top_graphs[idx]
+            ax = axes[idx]
+            
+            # Get the example file and its connectivity data
+            example_file = graph_info.get('example_file', '')
+            connectivity = file_to_connectivity.get(example_file, {})
+            adjacency = connectivity.get('adjacency', {})
+            
+            if not adjacency:
+                ax.axis('off')
+                continue
+            
+            # Build NetworkX graph from adjacency data (same as in Floorplan class)
+            G = nx.Graph()
+            
+            # Add edges from adjacency list
+            for node, neighbors in adjacency.items():
+                for neighbor in neighbors:
+                    G.add_edge(node, neighbor)
+            
+            # Use spring layout for positioning
+            pos = nx.spring_layout(G, k=0.8, iterations=50, seed=42)
+            
+            # Color nodes by room type
+            node_colors = []
+            color_map = {
+                'living room': '#FF6B6B',
+                'master room': '#4ECDC4',
+                'bedroom': '#45B7D1',
+                'kitchen': '#FFA07A',
+                'bathroom': '#98D8C8',
+                'balcony': '#F7DC6F',
+                'storage': '#BB8FCE',
+                'entrance': '#85C1E2',
+                'dining room': '#F8B88B',
+                'child room': '#A8E6CF',
+                'second room': '#FFD3B6',
+                'guest room': '#FFAAA5',
+            }
+            
+            for node in G.nodes():
+                # Extract room type (before underscore)
+                room_type = node.split('_')[0] if '_' in node else node
+                node_colors.append(color_map.get(room_type, '#D3D3D3'))
+            
+            # Draw the graph
+            nx.draw(G, pos, ax=ax, node_color=node_colors, node_size=300,
+                   with_labels=True, font_size=5, font_weight='bold', 
+                   edge_color='gray', width=1.5, alpha=0.9)
+            
+            # Title with rank and count
+            title_file = example_file[:12] + '...' if len(example_file) > 12 else example_file
+            ax.set_title(f"#{idx+1}: {graph_info.get('count', 0)} occurrences\n{title_file}",
+                        fontsize=8, fontweight='bold')
+            ax.axis('off')
+        
+        # Hide unused subplots
+        for idx in range(num_to_plot, 10):
+            axes[idx].axis('off')
+        
+        unique_graphs = stats['connectivity_graphs']['unique_graphs']
+        unique_graphs_filtered = stats['connectivity_graphs']['unique_graphs_filtered']
+        total_graphs = stats['connectivity_graphs']['total_with_connectivity']
+        graph_counts = stats.get('connectivity_graphs', {}).get('counts') or []
+        threshold_label = stats['connectivity_graphs']['filter_threshold_label']
+        
+        fig.suptitle(f'Top 10 Most Common Connectivity Graph Patterns (≥{threshold_label})\n({unique_graphs_filtered:,} filtered out of {unique_graphs:,} unique graphs)', 
+                    fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, 'connectivity_graph_top10_visualized.png'), dpi=150)
+        plt.close()
+        print(f"Saved: connectivity_graph_top10_visualized.png")
     
     # 5. Create a summary plot with all room types (box plot)
     # Note: This is now integrated into the combined plot above
@@ -353,6 +695,8 @@ if __name__ == "__main__":
     print(f"  Room count range: {stats['room_counts']['min']} - {stats['room_counts']['max']}")
     print(f"  Average room count: {stats['room_counts']['mean']:.2f}")
     print(f"  Room types found: {len(stats['room_type_stats'])}")
+    print(f"  Connectivity graphs: {stats['connectivity_graphs']['total_with_connectivity']} total / {stats['connectivity_graphs']['unique_graphs']} unique")
+    print(f"  Graphs filtered by threshold ({stats['connectivity_graphs']['filter_threshold_label']}): {stats['connectivity_graphs']['unique_graphs_filtered']} remaining")
     
     print("\n" + "="*60)
     print("Creating distribution plots...")

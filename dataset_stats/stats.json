@@ -119,5 +119,1267 @@
     "study room": 14985,
     "dining room": 1311,
     "storage": 2494
+  },
+  "connectivity_graphs": {
+    "total_with_connectivity": 80787,
+    "unique_graphs": 4656,
+    "top_graphs": [
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 9619,
+        "example_file": "0.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--master room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 4756,
+        "example_file": "12.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--master room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 4002,
+        "example_file": "16.png",
+        "nodes": [
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--kitchen\"}, {\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 2], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 3999,
+        "example_file": "125.png",
+        "nodes": [
+          [
+            "balcony",
+            2
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--kitchen",
+            "count": 1
+          },
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 3519,
+        "example_file": "51.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"bathroom--master room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 2], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 3274,
+        "example_file": "176.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            2
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--master room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}, {\"count\": 1, \"edge\": \"living room--study room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1], [\"study room\", 1]]}",
+        "count": 2626,
+        "example_file": "24.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ],
+          [
+            "study room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          },
+          {
+            "edge": "living room--study room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--master room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 1967,
+        "example_file": "60.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--master room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 2, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 2], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 1479,
+        "example_file": "148.png",
+        "nodes": [
+          [
+            "balcony",
+            2
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 2
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 1397,
+        "example_file": "118.png",
+        "nodes": [
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"bathroom--master room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}, {\"count\": 1, \"edge\": \"living room--study room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 2], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1], [\"study room\", 1]]}",
+        "count": 1317,
+        "example_file": "123.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            2
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ],
+          [
+            "study room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--master room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          },
+          {
+            "edge": "living room--study room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}, {\"count\": 1, \"edge\": \"living room--study room\"}], \"nodes\": [[\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1], [\"study room\", 1]]}",
+        "count": 1314,
+        "example_file": "26.png",
+        "nodes": [
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ],
+          [
+            "study room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          },
+          {
+            "edge": "living room--study room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--second room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 1200,
+        "example_file": "4.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--second room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--kitchen\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 1173,
+        "example_file": "23.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--kitchen",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--kitchen\"}, {\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 2], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 1118,
+        "example_file": "77.png",
+        "nodes": [
+          [
+            "balcony",
+            2
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--kitchen",
+            "count": 1
+          },
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"balcony--master room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 2], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1]]}",
+        "count": 1039,
+        "example_file": "28.png",
+        "nodes": [
+          [
+            "balcony",
+            2
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "balcony--master room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--master room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}, {\"count\": 1, \"edge\": \"living room--study room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1], [\"study room\", 1]]}",
+        "count": 966,
+        "example_file": "27.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ],
+          [
+            "study room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--master room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          },
+          {
+            "edge": "living room--study room",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"bathroom--master room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"bathroom\", 2], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 778,
+        "example_file": "85.png",
+        "nodes": [
+          [
+            "bathroom",
+            2
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--master room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--second room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 2, \"edge\": \"living room--second room\"}], \"nodes\": [[\"balcony\", 1], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 2]]}",
+        "count": 772,
+        "example_file": "106.png",
+        "nodes": [
+          [
+            "balcony",
+            1
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            2
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--second room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "signature": "{\"edges\": [{\"count\": 1, \"edge\": \"balcony--kitchen\"}, {\"count\": 1, \"edge\": \"balcony--living room\"}, {\"count\": 1, \"edge\": \"bathroom--living room\"}, {\"count\": 1, \"edge\": \"entrance--living room\"}, {\"count\": 1, \"edge\": \"kitchen--living room\"}, {\"count\": 1, \"edge\": \"living room--master room\"}, {\"count\": 1, \"edge\": \"living room--second room\"}, {\"count\": 1, \"edge\": \"living room--study room\"}], \"nodes\": [[\"balcony\", 2], [\"bathroom\", 1], [\"entrance\", 1], [\"kitchen\", 1], [\"living room\", 1], [\"master room\", 1], [\"second room\", 1], [\"study room\", 1]]}",
+        "count": 736,
+        "example_file": "112.png",
+        "nodes": [
+          [
+            "balcony",
+            2
+          ],
+          [
+            "bathroom",
+            1
+          ],
+          [
+            "entrance",
+            1
+          ],
+          [
+            "kitchen",
+            1
+          ],
+          [
+            "living room",
+            1
+          ],
+          [
+            "master room",
+            1
+          ],
+          [
+            "second room",
+            1
+          ],
+          [
+            "study room",
+            1
+          ]
+        ],
+        "edges": [
+          {
+            "edge": "balcony--kitchen",
+            "count": 1
+          },
+          {
+            "edge": "balcony--living room",
+            "count": 1
+          },
+          {
+            "edge": "bathroom--living room",
+            "count": 1
+          },
+          {
+            "edge": "entrance--living room",
+            "count": 1
+          },
+          {
+            "edge": "kitchen--living room",
+            "count": 1
+          },
+          {
+            "edge": "living room--master room",
+            "count": 1
+          },
+          {
+            "edge": "living room--second room",
+            "count": 1
+          },
+          {
+            "edge": "living room--study room",
+            "count": 1
+          }
+        ]
+      }
+    ]
   }
 }
