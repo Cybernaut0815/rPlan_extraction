@@ -103,7 +103,7 @@ import random as rand
 random_path = os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)])
 test_fp = Floorplan(random_path, wall_width=wall_width)
 
-size = 28
+size = 64
 
 resized_fp_pixels = test_fp.pixel_based_resize(size)
 resized_fp_outlines = test_fp.outline_based_resize(size)
