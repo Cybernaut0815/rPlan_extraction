@@ -9,3 +9,4 @@ langchain-openai==1.1.6
 dotenv
 openai
 ipykernel
+huggingface-hub

@@ -58,23 +58,6 @@ print(my_fp.get_room_types_count())
 
 # %%
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=1.0)
-system_message = "You are a helpful assistant that creates a text description of a floor plan based on the given data containing information about the room types, counts and how they are connected. Be concise and to the point, not too long or too poetic. Don't try to sell the flat and don't explain in detail what the rooms are for."
-query = "Write a short descriptions like a prompt for a flat with the given features. The prompt should be in natural language and describe the the flat based on the given count of different room types and how they are connected. This is the data: "
-
-# %%
-
-data = my_fp.generate_llm_descriptions(llm, system_message, query)
-
-for i, description in enumerate(data["descriptions"]):
-    print(f"Description {i+1}:")
-    print(description)
-    print("\n")
-
-
-
-# %%
-
 # test plotting first 10 paths to check for 
 
 for i, path in enumerate(paths[:10]):
@@ -125,6 +108,44 @@ ax2.axis('off')
 
 plt.tight_layout()
 plt.show()
+
+
+# %%
+# Debug skeleton visualization
+import importlib
+import helpers.fp
+importlib.reload(helpers.fp)
+from helpers.fp import Floorplan
+
+test_fp = Floorplan(os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)]), wall_width=wall_width)
+
+# Run with debug=True to see the skeleton
+resized = test_fp.outline_based_resize(64, debug=True)
+
+plt.figure(figsize=(6,6))
+plt.imshow(resized[:,:,0], cmap='tab20')
+plt.title('Resized Output')
+plt.axis('off')
+plt.show()
+
+
+
+# %%
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=1.0)
+system_message = "You are a helpful assistant that creates a text description of a floor plan based on the given data containing information about the room types, counts and how they are connected. Be concise and to the point, not too long or too poetic. Don't try to sell the flat and don't explain in detail what the rooms are for."
+query = "Write a short descriptions like a prompt for a flat with the given features. The prompt should be in natural language and describe the the flat based on the given count of different room types and how they are connected. This is the data: "
+
+# %%
+
+data = my_fp.generate_llm_descriptions(llm, system_message, query)
+
+for i, description in enumerate(data["descriptions"]):
+    print(f"Description {i+1}:")
+    print(description)
+    print("\n")
+
+
 
 # %%
 

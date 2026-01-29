@@ -1,15 +1,14 @@
-import os
 import numpy as np
 import cv2
+from skimage.morphology import skeletonize
 
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import Polygon
 import networkx as nx
 
 from helpers.info import Info
 from helpers.utils import load_image, resize_plan, apply_room_postprocess, expand_rooms_right_down
 from helpers.llm_utils import get_descriptions
 import matplotlib.pyplot as plt
-import cv2
 
 
 class Floorplan:
@@ -212,128 +211,158 @@ class Floorplan:
         resized_fp = expand_rooms_right_down(resized_fp, fillable, num_rooms=12, max_passes=5)
         return self._postprocess_and_mask(resized_fp)
 
-
-    def outline_based_resize(self, target_size):
+    def _extract_wall_skeleton(self):
         """
-        Resize floor plan using polygon-based approach:
-        1. Create offset polygons (outward by half wall width)
-        2. For each grid point, check which polygon(s) it's contained in
-        3. For ambiguous points (in multiple polygons), select based on distance to original outline
+        Extract skeleton from wall pixels (exterior walls, interior walls, doors).
+        Returns a binary mask where True = wall skeleton.
         """
-        # Create grid points
-        x = np.linspace(0, self.image.shape[1], target_size + 1)
-        y = np.linspace(0, self.image.shape[0], target_size + 1)
-        X, Y = np.meshgrid(x, y)
-        X = X[:-1, :-1]
-        Y = Y[:-1, :-1]
+        room_types = self._room_types_channel
         
-        # Build mapping of original polygons (no offset at start)
-        from shapely.prepared import prep
-        room_entries = []  # list of dicts: {room_type, original_poly, offset_geom, prepared_offset}
+        # Get wall-related pixel values
+        exterior_wall = self.info.all_types.get("exterior wall", 14)
+        interior_wall = self.info.all_types.get("interior wall", 16)
+        interior_door = self.info.all_types.get("interior door", 17)
+        front_door = self.info.all_types.get("front door", 15)
+        
+        # Create wall mask
+        wall_mask = (
+            (room_types == exterior_wall) | 
+            (room_types == interior_wall) | 
+            (room_types == interior_door) |
+            (room_types == front_door)
+        ).astype(np.uint8)
+        
+        # Skeletonize to get 1-pixel thick boundaries
+        skeleton = skeletonize(wall_mask > 0)
+        
+        return skeleton.astype(np.uint8)
 
-        for room_type, contour_list in self.contours.items():
-            # Skip interior doors; entrance/exterior door handled only for centroid
-            if room_type == "interior door":
+    def outline_based_resize(self, target_size, debug=False):
+        """
+        Resize floor plan using vector-based approach:
+        1. Extract skeleton and find room regions
+        2. Convert each region to a Shapely polygon  
+        3. For each output pixel, check polygon containment
+        """
+        from shapely.geometry import Polygon as ShapelyPolygon, Point
+        from shapely import prepare
+        
+        room_types = self._room_types_channel.copy()
+        external_area = self.info.all_types.get("external area", 13)
+        
+        # Extract skeleton and find connected regions
+        skeleton = self._extract_wall_skeleton()
+        inverted = (skeleton == 0).astype(np.uint8)
+        num_labels, labels = cv2.connectedComponents(inverted, connectivity=4)
+        
+        # Build Shapely polygons for each room region
+        room_polygons = []
+        for label_id in range(1, num_labels):
+            mask = (labels == label_id).astype(np.uint8)
+            region_room_types = room_types[mask > 0]
+            valid_types = region_room_types[region_room_types <= 11]
+            
+            if len(valid_types) == 0:
                 continue
-            # Skip exterior door polygons from filling rooms but keep centroid elsewhere
-            if room_type in {"exterior door", "entrance"}:
+            
+            room_value = np.bincount(valid_types).argmax()
+            region_instances = self._distinct_rooms_channel[mask > 0]
+            instance_value = np.bincount(region_instances[region_instances > 0]).argmax() if np.any(region_instances > 0) else 0
+            
+            # Extract and simplify contour
+            contours, _ = cv2.findContours(mask * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
                 continue
-
-            for c in contour_list:
-                original_poly = self.contours_to_polygons(c)
-                if original_poly is None:
-                    continue
-
-                # Use original polygon without offset
-                geoms = [original_poly]
-
-                for g in geoms:
-                    if g.is_empty:
-                        continue
-                    # Prepared geometry speeds up point-in-polygon queries
-                    room_entries.append({
-                        'room_type': room_type,
-                        'original_poly': original_poly,
-                        'offset_geom': g,
-                        'prepared_offset': prep(g)
-                    })
-        
-        # Create output array
-        resized_fp = np.zeros((X.shape[0], X.shape[1], 3))
-        
-        # For each grid point
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                point_x = X[i, j]
-                point_y = Y[i, j]
-                
-                from shapely.geometry import Point
-                point = Point(point_x, point_y)
-                
-                # Find which offset polygons cover this point (includes boundary)
-                hits = []
-                for entry in room_entries:
-                    if entry['prepared_offset'].covers(point):
-                        hits.append(entry)
-                
-                if len(hits) == 0:
-                    # Outside all offset polygons: mark as external area and set mask
-                    orig_y = int(np.clip(point_y, 0, self.image.shape[0] - 1))
-                    orig_x = int(np.clip(point_x, 0, self.image.shape[1] - 1))
-                    resized_fp[i, j, 0] = self.info.all_types["external area"]  # 13
-                    resized_fp[i, j, 1] = self.image[orig_y, orig_x, 2]
-                    resized_fp[i, j, 2] = 1
-                
-                elif len(hits) == 1:
-                    # Point in exactly one room
-                    room_type = hits[0]['room_type']
-                    room_value = self.info.room_types[room_type]
-                    resized_fp[i, j, 0] = room_value
-                    
-                    # Get second channel value from original image
-                    orig_y = int(np.clip(point_y, 0, self.image.shape[0] - 1))
-                    orig_x = int(np.clip(point_x, 0, self.image.shape[1] - 1))
-                    resized_fp[i, j, 1] = self.image[orig_y, orig_x, 2]
-                    resized_fp[i, j, 2] = 0
-                
+            contour = max(contours, key=cv2.contourArea)
+            simplified = cv2.approxPolyDP(contour, 2.0, True)
+            points = simplified.reshape(-1, 2).tolist()
+            
+            if len(points) < 3:
+                continue
+            
+            # Straighten edges by snapping to axis-aligned with previous point
+            straightened = []
+            for i, (x, y) in enumerate(points):
+                prev_x, prev_y = points[(i - 1) % len(points)]
+                if abs(x - prev_x) < abs(y - prev_y):
+                    x = prev_x  # More vertical - align x
                 else:
-                    # Point in multiple rooms - use distance to original outline
-                    min_dist = float('inf')
-                    best_room = None
-                    
-                    for entry in hits:
-                        room_type = entry['room_type']
-                        original_poly = entry['original_poly']
-                        
-                        # Distance to original outline (before offset)
-                        dist = point.distance(original_poly.exterior)
-                        
-                        if dist < min_dist:
-                            min_dist = dist
-                            best_room = room_type
-                    
-                    if best_room:
-                        room_value = self.info.room_types[best_room]
-                        resized_fp[i, j, 0] = room_value
-                        
-                        # Get second channel value from original image
-                        orig_y = int(np.clip(point_y, 0, self.image.shape[0] - 1))
-                        orig_x = int(np.clip(point_x, 0, self.image.shape[1] - 1))
-                        resized_fp[i, j, 1] = self.image[orig_y, orig_x, 2]
-                        resized_fp[i, j, 2] = 0
+                    y = prev_y  # More horizontal - align y
+                straightened.append((x, y))
+            
+            # Remove duplicate consecutive points
+            clean_points = [straightened[0]]
+            for p in straightened[1:]:
+                if p != clean_points[-1]:
+                    clean_points.append(p)
+            
+            if len(clean_points) < 3:
+                continue
+            
+            # Create buffered polygon
+            try:
+                poly = ShapelyPolygon(clean_points)
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
+                if poly.is_valid and poly.area > 0:
+                    poly = poly.buffer(1.5, cap_style=3, join_style=2)
+                    prepare(poly)
+                    room_polygons.append((poly, room_value, instance_value))
+            except:
+                continue
         
-        interior_wall_val = self.info.all_types.get("interior wall", 16)
-        interior_door_val = self.info.all_types.get("interior door", 17)
-        out_h, out_w, _ = resized_fp.shape
+        # Sample grid points and check polygon containment
+        resized_room_map = np.full((target_size, target_size), external_area, dtype=np.uint8)
+        resized_instance_map = np.zeros((target_size, target_size), dtype=np.uint8)
+        scale_y = self.image.shape[0] / target_size
+        scale_x = self.image.shape[1] / target_size
+        
+        for i in range(target_size):
+            for j in range(target_size):
+                sample_point = Point((j + 0.5) * scale_x, (i + 0.5) * scale_y)
+                for poly, room_value, instance_value in room_polygons:
+                    if poly.contains(sample_point):
+                        resized_room_map[i, j] = room_value
+                        resized_instance_map[i, j] = instance_value
+                        break
+        
+        # Build output array
+        resized_fp = np.zeros((target_size, target_size, 3), dtype=np.float32)
+        resized_fp[:, :, 0] = resized_room_map
+        resized_fp[:, :, 1] = self._label_instances(resized_room_map.astype(np.int32))
+        resized_fp[:, :, 2] = (resized_room_map <= 11).astype(np.uint8)
+        
+        if debug:
+            self._debug_outline_resize(skeleton, labels, num_labels, room_polygons, resized_room_map)
+        
+        return resized_fp
 
-        fillable = np.zeros((out_h, out_w), dtype=bool)
-        ty = np.clip(Y, 0, self.image.shape[0] - 1).astype(int)
-        tx = np.clip(X, 0, self.image.shape[1] - 1).astype(int)
-        orig_vals = self.image[ty, tx, 1]
-        fillable[:] = (orig_vals == interior_wall_val) | (orig_vals == interior_door_val)
-        resized_fp = expand_rooms_right_down(resized_fp, fillable, num_rooms=12, max_passes=5)
-        return self._postprocess_and_mask(resized_fp)
-
+    def _debug_outline_resize(self, skeleton, labels, num_labels, room_polygons, resized_room_map):
+        """Debug visualization for outline_based_resize."""
+        fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+        axes[0].imshow(skeleton, cmap='gray')
+        axes[0].set_title('Skeleton')
+        axes[0].axis('off')
+        
+        axes[1].imshow(labels, cmap='tab20')
+        axes[1].set_title(f'Regions ({num_labels - 1})')
+        axes[1].axis('off')
+        
+        poly_img = np.zeros((*skeleton.shape, 3), dtype=np.uint8)
+        for poly, rtype, _ in room_polygons:
+            coords = np.array(poly.exterior.coords).astype(np.int32)
+            color = (int((rtype * 50 + 100) % 255), int((rtype * 80 + 50) % 255), int((rtype * 30 + 150) % 255))
+            cv2.polylines(poly_img, [coords], True, color, 1)
+        axes[2].imshow(poly_img)
+        axes[2].set_title(f'Polygons ({len(room_polygons)})')
+        axes[2].axis('off')
+        
+        axes[3].imshow(resized_room_map, cmap='tab20')
+        axes[3].set_title('Resized Room Map')
+        axes[3].axis('off')
+        
+        plt.tight_layout()
+        plt.show()
 
     def contours_to_polygons(self, contour):
         if len(contour) < 4:
@@ -950,34 +979,6 @@ class Floorplan:
         resized_fp[:, :, 1] = self._label_instances(resized_fp[:, :, 0].astype(np.int32))
         resized_fp[:, :, 2] = (resized_fp[:, :, 0] <= 11).astype(np.uint8)
         return resized_fp
-
-    def _reproject_instances(self, room_post, room_pre, inst_pre):
-        """Map instance ids onto the postprocessed room grid by nearest seed of the same room type."""
-        h, w = room_post.shape
-        new_inst = np.zeros_like(inst_pre)
-
-        room_vals = np.unique(room_post)
-        for rv in room_vals:
-            if rv > 11:
-                # Keep non-room areas as-is
-                mask = room_post == rv
-                new_inst[mask] = inst_pre[mask]
-                continue
-
-            target_yx = np.argwhere(room_post == rv)
-            seed_yx = np.argwhere(room_pre == rv)
-            if seed_yx.size == 0 or target_yx.size == 0:
-                continue
-
-            seed_vals = inst_pre[room_pre == rv].flatten()
-            # Compute nearest seed for each target cell (grids are small, brute-force is fine)
-            dy = target_yx[:, None, 0] - seed_yx[None, :, 0]
-            dx = target_yx[:, None, 1] - seed_yx[None, :, 1]
-            d2 = dy * dy + dx * dx
-            nearest_idx = d2.argmin(axis=1)
-            new_inst[target_yx[:, 0], target_yx[:, 1]] = seed_vals[nearest_idx]
-
-        return new_inst
 
     ### here llm descriptions ###
     
