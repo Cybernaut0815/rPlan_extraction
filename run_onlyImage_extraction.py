@@ -1,5 +1,6 @@
 import argparse
 import os
+import json
 
 from PIL import Image
 import numpy as np
@@ -54,6 +55,96 @@ REMAP_TO_NAME = {
     12: "external area",
 }
 
+# Default maximum instances per room type (fallback if stats.json not available)
+# This ensures consistent color mapping across all floorplans
+# Based on statistics extracted from the rPlan dataset:
+#   living room: 1, master room: 5, kitchen: 2, bathroom: 3, dining room: 2,
+#   child room: 3, study room: 3, second room: 4, guest room: 3, balcony: 4,
+#   entrance: 1 (assumed), storage: 3, external area: 1 (not instanced)
+ROOM_TYPE_MAX_INSTANCES_DEFAULT = {
+    "living room": 1,
+    "master room": 5,
+    "kitchen": 2,
+    "bathroom": 3,
+    "dining room": 2,
+    "child room": 3,
+    "study room": 3,
+    "second room": 4,
+    "guest room": 3,
+    "balcony": 4,
+    "entrance": 1,
+    "storage": 3,
+    "external area": 1,  # Not instanced, always single
+}
+
+def _load_room_type_max_instances():
+    """
+    Load room_type_max_instances from stats.json if available.
+    Falls back to ROOM_TYPE_MAX_INSTANCES_DEFAULT if stats.json is not found or missing the key.
+    
+    Returns:
+        dict: Mapping of room_type_name -> max_instance_count
+    """
+    stats_path = os.path.join(os.path.dirname(__file__), 'dataset_stats', 'stats.json')
+    
+    if os.path.exists(stats_path):
+        try:
+            with open(stats_path, 'r', encoding='utf-8') as f:
+                stats = json.load(f)
+            
+            loaded_instances = stats.get('room_type_max_instances', {})
+            if loaded_instances:
+                # Merge with defaults to ensure all room types are covered
+                # (entrance and external area may not appear in stats)
+                result = ROOM_TYPE_MAX_INSTANCES_DEFAULT.copy()
+                result.update(loaded_instances)
+                return result
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not load stats.json: {e}. Using default values.")
+    
+    return ROOM_TYPE_MAX_INSTANCES_DEFAULT.copy()
+
+# Load room type max instances from stats.json (or use defaults)
+ROOM_TYPE_MAX_INSTANCES = _load_room_type_max_instances()
+
+# Create a mapping from (room_type_id, instance_id) to a unique color value
+# This allows differentiating rooms of the same type (e.g., bathroom_0, bathroom_1)
+# Color values are spread across 0-255 for visual differentiation
+def _build_room_instance_color_map():
+    """
+    Build a mapping from (room_type_id, instance_id) -> unique_color_value.
+    
+    The color values are assigned sequentially and spread across 0-255 range.
+    Room types with only 1 instance get a single color.
+    Room types with multiple instances get sequential colors for each instance.
+    
+    Returns:
+        dict: Mapping of (room_type_id, instance_id) -> color_value (0-255)
+        dict: Reverse mapping of color_value -> (room_type_name, instance_id)
+    """
+    color_map = {}
+    reverse_map = {}
+    
+    # Calculate total number of unique room instances
+    total_instances = sum(ROOM_TYPE_MAX_INSTANCES.values())
+    
+    color_idx = 0
+    for room_type_id, room_name in REMAP_TO_NAME.items():
+        max_instances = ROOM_TYPE_MAX_INSTANCES.get(room_name, 1)
+        for instance_id in range(max_instances):
+            # Spread colors evenly across 0-255 range
+            color_value = int(color_idx * (255 / (total_instances - 1))) if total_instances > 1 else 0
+            color_map[(room_type_id, instance_id)] = color_value
+            reverse_map[color_value] = (room_name, instance_id)
+            color_idx += 1
+    
+    return color_map, reverse_map
+
+ROOM_INSTANCE_COLOR_MAP, COLOR_TO_ROOM_INSTANCE = _build_room_instance_color_map()
+
+# Total number of unique room instances (for reference)
+NUM_ROOM_INSTANCES = sum(ROOM_TYPE_MAX_INSTANCES.values())  # 35 total
+
 def remap_room_types(image_array, visual_spread=True):
     """
     Remap room type values to continuous integers.
@@ -82,6 +173,62 @@ def remap_room_types(image_array, visual_spread=True):
             remapped[room_channel == orig_val] = new_val
     
     return remapped
+
+
+def remap_room_instances(image_array):
+    """
+    Remap room type + instance values to unique colors (35 classes).
+    
+    Uses channel 0 (room type) and channel 2 (instance index) from the original image.
+    Channel 2 contains different integers to distinguish rooms of the same type
+    (0 = non-room area, 1+ = instance index).
+    
+    Args:
+        image_array: Input image array with at least 3 channels
+    
+    Returns:
+        remapped: Single-channel array with unique color per (room_type, instance)
+    """
+    if len(image_array.shape) != 3 or image_array.shape[2] < 3:
+        raise ValueError("Image must have at least 3 channels for instance remapping")
+    
+    room_channel = image_array[:, :, 0]      # Room type (original values)
+    instance_channel = image_array[:, :, 2]  # Instance index (1-based, 0 for non-room)
+    
+    remapped = np.zeros_like(room_channel, dtype=np.uint8)
+    
+    for orig_val, new_val in ROOM_TYPE_REMAP.items():
+        room_name = REMAP_TO_NAME.get(new_val, "unknown")
+        max_instances = ROOM_TYPE_MAX_INSTANCES.get(room_name, 1)
+        
+        # Mask for this room type
+        room_mask = (room_channel == orig_val)
+        
+        # Special case: external area (orig_val=13) has instance_channel=0
+        # It's not instanced like rooms, so just use the room_mask directly
+        if orig_val == 13:  # External area
+            color_key = (new_val, 0)
+            if color_key in ROOM_INSTANCE_COLOR_MAP:
+                color_value = ROOM_INSTANCE_COLOR_MAP[color_key]
+                remapped[room_mask] = color_value
+            continue
+        
+        for instance_id in range(max_instances):
+            # Instance channel is 1-based, so instance_id 0 corresponds to value 1
+            # For rooms with only 1 instance, any non-zero instance value maps to instance 0
+            if max_instances == 1:
+                instance_mask = room_mask & (instance_channel > 0)
+            else:
+                instance_mask = room_mask & (instance_channel == (instance_id + 1))
+            
+            # Get color value from the pre-built map
+            color_key = (new_val, instance_id)
+            if color_key in ROOM_INSTANCE_COLOR_MAP:
+                color_value = ROOM_INSTANCE_COLOR_MAP[color_key]
+                remapped[instance_mask] = color_value
+    
+    return remapped
+
 
 def create_exterior_mask(image_array):
     """
@@ -166,14 +313,15 @@ if __name__ == "__main__":
             my_fp = Floorplan(os.path.join(DATA_PATH, path), wall_width=wall_width)
             resized_image = my_fp.outline_based_resize(image_size_px)
 
-            # Remap room types to continuous integers (0-12)
-            remapped_rooms = remap_room_types(resized_image)
+            # Remap room types + instances to unique colors (35 classes)
+            # Uses channel 0 (room type) and channel 2 (instance index)
+            remapped_rooms = remap_room_instances(resized_image)
             
             # Create exterior area mask (alpha channel)
             alpha_mask = create_exterior_mask(resized_image)
 
             # Save PNG with alpha channel for exterior area
-            # Luminance channel: remapped room types (0-12)
+            # Luminance channel: remapped room instances (35 unique colors)
             # Alpha channel: 255 for interior, 0 for exterior (transparent)
             output_file = os.path.join(OUTPUT_PATH, f"image_{i}.png")
             output_img = Image.fromarray(np.stack([remapped_rooms, alpha_mask], axis=-1), mode='LA')

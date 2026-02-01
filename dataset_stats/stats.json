@@ -120,6 +120,19 @@
     "dining room": 1311,
     "storage": 2494
   },
+  "room_type_max_instances": {
+    "master room": 5,
+    "bathroom": 3,
+    "living room": 1,
+    "second room": 4,
+    "kitchen": 2,
+    "balcony": 4,
+    "child room": 3,
+    "guest room": 3,
+    "study room": 3,
+    "dining room": 2,
+    "storage": 3
+  },
   "connectivity_graphs": {
     "total_with_connectivity": 80787,
     "unique_graphs": 4656,

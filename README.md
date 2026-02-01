@@ -80,3 +80,10 @@ Visualization from an extracted datapoint downsized to 64x64
 ![Datapoint loaded](./media/images/resized.png)
 The connection graph extraction
 ![Graph extraction](./media/images/original.png)
+
+## To Do
+2026|02|01
+
+- [ ] Extract first 10.000 with no double rooms except bathrooms
+- [ ] Extract with less color classes
+- [ ] ...

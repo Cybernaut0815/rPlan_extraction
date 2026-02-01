@@ -86,6 +86,7 @@ def extract_dataset_stats(json_path: Path) -> dict:
     total_sizes_list = []  # List of total sizes per floorplan (valid rooms only)
     room_counts_list = []  # List of total valid room counts per floorplan
     room_type_counts = defaultdict(int)  # {room_type: total_valid_count_across_dataset}
+    room_type_max_instances = defaultdict(int)  # {room_type: max_instance_count_in_single_floorplan}
     graph_signature_counts = defaultdict(int)
     graph_signature_examples: Dict[str, Dict] = {}
     graphs_processed = 0
@@ -120,6 +121,27 @@ def extract_dataset_stats(json_path: Path) -> dict:
 
         # Count total valid rooms in this floorplan
         room_counts_list.append(len(valid_items))
+
+        # Track max instance count per room type in this floorplan
+        instance_counts = defaultdict(int)
+        for room_name, size in valid_items:
+            # Extract room type (before the underscore) and instance number
+            if '_' in room_name:
+                parts = room_name.rsplit('_', 1)
+                if parts[1].isdigit():
+                    room_type = parts[0]
+                    instance_num = int(parts[1]) + 1  # Convert 0-indexed to count
+                    instance_counts[room_type] = max(instance_counts[room_type], instance_num)
+                else:
+                    room_type = room_name
+                    instance_counts[room_type] = max(instance_counts[room_type], 1)
+            else:
+                room_type = room_name
+                instance_counts[room_type] = max(instance_counts[room_type], 1)
+        
+        # Update global max instances per type
+        for room_type, count in instance_counts.items():
+            room_type_max_instances[room_type] = max(room_type_max_instances[room_type], count)
 
         # Process each valid room
         for room_name, size in valid_items:
@@ -231,6 +253,7 @@ def extract_dataset_stats(json_path: Path) -> dict:
         'room_counts': room_counts_block,
         'room_type_stats': room_type_stats,
         'room_type_total_counts': dict(room_type_counts),
+        'room_type_max_instances': dict(room_type_max_instances),
         'connectivity_graphs': connectivity_stats
     }
     
@@ -247,6 +270,7 @@ def extract_dataset_stats(json_path: Path) -> dict:
             for room_type, room_stats in stats['room_type_stats'].items()
         },
         'room_type_total_counts': stats['room_type_total_counts'],
+        'room_type_max_instances': stats['room_type_max_instances'],
         'connectivity_graphs': {
             'total_with_connectivity': stats['connectivity_graphs']['total_with_connectivity'],
             'unique_graphs': stats['connectivity_graphs']['unique_graphs'],
@@ -697,6 +721,10 @@ if __name__ == "__main__":
     print(f"  Room types found: {len(stats['room_type_stats'])}")
     print(f"  Connectivity graphs: {stats['connectivity_graphs']['total_with_connectivity']} total / {stats['connectivity_graphs']['unique_graphs']} unique")
     print(f"  Graphs filtered by threshold ({stats['connectivity_graphs']['filter_threshold_label']}): {stats['connectivity_graphs']['unique_graphs_filtered']} remaining")
+    
+    print(f"\n  Max instances per room type:")
+    for room_type, max_count in sorted(stats['room_type_max_instances'].items()):
+        print(f"    {room_type}: {max_count}")
     
     print("\n" + "="*60)
     print("Creating distribution plots...")

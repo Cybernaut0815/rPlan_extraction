@@ -305,7 +305,7 @@ class Floorplan:
                 if not poly.is_valid:
                     poly = poly.buffer(0)
                 if poly.is_valid and poly.area > 0:
-                    poly = poly.buffer(1.5, cap_style=3, join_style=2)
+                    poly = poly.buffer(3.0, cap_style=3, join_style=2)
                     prepare(poly)
                     room_polygons.append((poly, room_value, instance_value))
             except:

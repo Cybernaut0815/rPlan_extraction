@@ -10,3 +10,4 @@ dotenv
 openai
 ipykernel
 huggingface-hub
+datasets
