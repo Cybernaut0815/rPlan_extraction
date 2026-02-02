@@ -120,7 +120,7 @@ from helpers.fp import Floorplan
 test_fp = Floorplan(os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)]), wall_width=wall_width)
 
 # Run with debug=True to see the skeleton
-resized = test_fp.outline_based_resize(64, debug=True)
+resized = test_fp.outline_based_resize(32, debug=True)
 
 plt.figure(figsize=(6,6))
 plt.imshow(resized[:,:,0], cmap='tab20')

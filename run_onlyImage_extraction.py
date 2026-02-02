@@ -248,6 +248,24 @@ def create_exterior_mask(image_array):
     
     return alpha
 
+
+def has_single_instances_only(room_types_count):
+    """
+    Check if the floorplan has at most one instance of each room type.
+    
+    Args:
+        room_types_count: dict from Floorplan.room_types_count
+                          Maps room_type_name -> count
+    
+    Returns:
+        bool: True if each room type appears at most once
+    """
+    for room_type, count in room_types_count.items():
+        if count > 1:
+            return False
+    return True
+
+
 parser = argparse.ArgumentParser(description="Run floorplan extraction and visualization.")
 parser.add_argument('--data_path', type=str, required=True, help='Path to the dataset')
 parser.add_argument('--output_path', type=str, required=True, help='Path to save outputs')
@@ -256,6 +274,9 @@ parser.add_argument('--image_size', type=int, default=64, help='Size of the imag
 parser.add_argument('--wall_width', type=float, default=3.0, help='Wall width for floorplan processing')
 parser.add_argument('--log_dir', type=str, default='logs', help='Directory to save logs')
 parser.add_argument('--log_level', type=str, default='INFO', help='Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
+parser.add_argument('--basic_types', action='store_true', 
+                    help='Use 13 basic room types only (no instance differentiation). '
+                         'Only extracts images with at most one instance per room type.')
 
 args = parser.parse_args()
 
@@ -293,49 +314,73 @@ if __name__ == "__main__":
 
     max_index_count = args.max_index if args.max_index > 0 else len(paths)
     image_size_px = args.image_size
+    basic_types_mode = args.basic_types
     logger.info(
         f"Run params -> wall_width={wall_width}, image_size_px={image_size_px}, "
         f"max_index_count={max_index_count}, output_path={OUTPUT_PATH}, log_file={log_file}, "
-        f"log_level={args.log_level}"
+        f"log_level={args.log_level}, basic_types={basic_types_mode}"
     )
+    if basic_types_mode:
+        logger.info(f"Basic types mode: Using {NUM_ROOM_TYPES} room types, skipping images with multiple instances")
 
     # Initialize a tqdm progress bar that stays on the last line
     pbar = tqdm(total=max_index_count, desc="Extracting", unit="img", leave=True, dynamic_ncols=True)
 
-    for i, path in enumerate(paths[:max_index_count]):
-        if i % 10 == 0:
-            logger.info(f"Progress checkpoint: {i}/{max_index_count}")
+    exported_count = 0  # Track successfully exported images
+    skipped_count = 0   # Track skipped images
+    
+    for i, path in enumerate(paths):
+        # Stop when we've exported enough images
+        if exported_count >= max_index_count:
+            break
+            
+        if exported_count % 10 == 0 and exported_count > 0:
+            logger.info(f"Progress checkpoint: {exported_count}/{max_index_count} exported, {skipped_count} skipped")
 
         try:
             start_time = time.perf_counter()
-            logger.info(f"[{i+1}/{max_index_count}] Start processing: {path}")
+            logger.debug(f"[{exported_count+1}/{max_index_count}] Processing: {path}")
 
             my_fp = Floorplan(os.path.join(DATA_PATH, path), wall_width=wall_width)
+
+            # In basic_types mode, skip images with multiple instances of any room type
+            # Check using the room graph (more reliable than pixel-based detection)
+            if basic_types_mode and not has_single_instances_only(my_fp.room_types_count):
+                skipped_count += 1
+                logger.debug(f"Skipping {path}: has multiple instances of same room type (skipped: {skipped_count})")
+                continue
+
             resized_image = my_fp.outline_based_resize(image_size_px)
 
-            # Remap room types + instances to unique colors (35 classes)
-            # Uses channel 0 (room type) and channel 2 (instance index)
-            remapped_rooms = remap_room_instances(resized_image)
+            # Remap room types based on mode
+            if basic_types_mode:
+                # Use 13 basic room types (0-12) spread across 0-255
+                remapped_rooms = remap_room_types(resized_image, visual_spread=True)
+            else:
+                # Use 35 classes (room type + instance) spread across 0-255
+                remapped_rooms = remap_room_instances(resized_image)
             
             # Create exterior area mask (alpha channel)
             alpha_mask = create_exterior_mask(resized_image)
 
             # Save PNG with alpha channel for exterior area
-            # Luminance channel: remapped room instances (35 unique colors)
+            # Luminance channel: remapped room types/instances
             # Alpha channel: 255 for interior, 0 for exterior (transparent)
-            output_file = os.path.join(OUTPUT_PATH, f"image_{i}.png")
+            output_file = os.path.join(OUTPUT_PATH, f"image_{exported_count}.png")
             output_img = Image.fromarray(np.stack([remapped_rooms, alpha_mask], axis=-1), mode='LA')
             output_img.save(output_file)
 
             duration = time.perf_counter() - start_time
             logger.info(
-                f"[{i+1}/{max_index_count}] Saved: {output_file} | shape: {remapped_rooms.shape} | elapsed: {duration:.2f}s"
+                f"[{exported_count+1}/{max_index_count}] Saved: {output_file} | shape: {remapped_rooms.shape} | elapsed: {duration:.2f}s"
             )
-
-        except Exception as e:
-            logger.exception(f"[{i+1}/{max_index_count}] Error processing {path}")
-        finally:
+            
+            exported_count += 1
             pbar.update(1)
 
+        except Exception as e:
+            logger.exception(f"Error processing {path}")
+
     pbar.close()
+    logger.info(f"Extraction complete: {exported_count} images exported, {skipped_count} skipped")
 
