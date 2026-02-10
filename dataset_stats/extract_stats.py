@@ -87,6 +87,7 @@ def extract_dataset_stats(json_path: Path) -> dict:
     room_counts_list = []  # List of total valid room counts per floorplan
     room_type_counts = defaultdict(int)  # {room_type: total_valid_count_across_dataset}
     room_type_max_instances = defaultdict(int)  # {room_type: max_instance_count_in_single_floorplan}
+    room_type_instance_distribution = defaultdict(lambda: defaultdict(int))  # {room_type: {instance_count: num_floorplans}}
     graph_signature_counts = defaultdict(int)
     graph_signature_examples: Dict[str, Dict] = {}
     graphs_processed = 0
@@ -139,9 +140,10 @@ def extract_dataset_stats(json_path: Path) -> dict:
                 room_type = room_name
                 instance_counts[room_type] = max(instance_counts[room_type], 1)
         
-        # Update global max instances per type
+        # Update global max instances per type and instance distribution
         for room_type, count in instance_counts.items():
             room_type_max_instances[room_type] = max(room_type_max_instances[room_type], count)
+            room_type_instance_distribution[room_type][count] += 1
 
         # Process each valid room
         for room_name, size in valid_items:
@@ -254,6 +256,7 @@ def extract_dataset_stats(json_path: Path) -> dict:
         'room_type_stats': room_type_stats,
         'room_type_total_counts': dict(room_type_counts),
         'room_type_max_instances': dict(room_type_max_instances),
+        'room_type_instance_distribution': {rt: dict(counts) for rt, counts in room_type_instance_distribution.items()},
         'connectivity_graphs': connectivity_stats
     }
     
@@ -271,6 +274,7 @@ def extract_dataset_stats(json_path: Path) -> dict:
         },
         'room_type_total_counts': stats['room_type_total_counts'],
         'room_type_max_instances': stats['room_type_max_instances'],
+        'room_type_instance_distribution': stats['room_type_instance_distribution'],
         'connectivity_graphs': {
             'total_with_connectivity': stats['connectivity_graphs']['total_with_connectivity'],
             'unique_graphs': stats['connectivity_graphs']['unique_graphs'],
@@ -324,10 +328,10 @@ def plot_distributions(stats: Dict) -> None:
     plt.xlabel('Total Floorplan Size (m²)')
     plt.ylabel('Frequency')
     plt.title(f'Distribution of Total Floorplan Sizes\n'
-              f'Min: {stats["total_sizes"]["min"]:.2f} m², '
-              f'Max: {stats["total_sizes"]["max"]:.2f} m², '
-              f'Mean: {stats["total_sizes"]["mean"]:.2f} m², '
-              f'Median: {stats["total_sizes"]["median"]:.2f} m²')
+                f'Min: {stats["total_sizes"]["min"]:.2f} m², '
+                f'Max: {stats["total_sizes"]["max"]:.2f} m², '
+                f'Mean: {stats["total_sizes"]["mean"]:.2f} m², '
+                f'Median: {stats["total_sizes"]["median"]:.2f} m²')
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, 'total_sizes_distribution.png'), dpi=150)
@@ -343,10 +347,10 @@ def plot_distributions(stats: Dict) -> None:
     plt.xlabel('Number of Rooms')
     plt.ylabel('Frequency')
     plt.title(f'Distribution of Room Counts per Floorplan\n'
-              f'Min: {stats["room_counts"]["min"]}, '
-              f'Max: {stats["room_counts"]["max"]}, '
-              f'Mean: {stats["room_counts"]["mean"]:.2f}, '
-              f'Median: {stats["room_counts"]["median"]:.2f}')
+                f'Min: {stats["room_counts"]["min"]}, '
+                f'Max: {stats["room_counts"]["max"]}, '
+                f'Mean: {stats["room_counts"]["mean"]:.2f}, '
+                f'Median: {stats["room_counts"]["median"]:.2f}')
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, 'room_counts_distribution.png'), dpi=150)
@@ -369,11 +373,11 @@ def plot_distributions(stats: Dict) -> None:
         plt.xlabel('Room Size (m²)')
         plt.ylabel('Frequency')
         plt.title(f'{room_type.capitalize()} Size Distribution\n'
-                  f'Min: {room_stats["min"]:.2f} m², '
-                  f'Max: {room_stats["max"]:.2f} m², '
-                  f'Mean: {room_stats["mean"]:.2f} m², '
-                  f'Median: {room_stats["median"]:.2f} m², '
-                  f'Count: {room_stats["count"]}')
+                    f'Min: {room_stats["min"]:.2f} m², '
+                    f'Max: {room_stats["max"]:.2f} m², '
+                    f'Mean: {room_stats["mean"]:.2f} m², '
+                    f'Median: {room_stats["median"]:.2f} m², '
+                    f'Count: {room_stats["count"]}')
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig(os.path.join(plots_dir, f'{room_type}_size_distribution.png'), dpi=150)
@@ -645,7 +649,67 @@ def plot_distributions(stats: Dict) -> None:
     
     # 5. Create a summary plot with all room types (box plot)
     # Note: This is now integrated into the combined plot above
-    
+
+    # 9. Room type instance count distribution (stacked bar plot)
+    instance_dist = stats.get('room_type_instance_distribution') or {}
+    if instance_dist:
+        # Sort room types by total floorplan appearances (descending)
+        room_types_sorted = sorted(
+            instance_dist.keys(),
+            key=lambda rt: sum(instance_dist[rt].values()),
+            reverse=True,
+        )
+
+        # Find the maximum instance count across all room types
+        all_instance_counts = set()
+        for counts in instance_dist.values():
+            all_instance_counts.update(int(k) for k in counts.keys())
+        max_instances = max(all_instance_counts) if all_instance_counts else 1
+
+        # Build a matrix: for each room type and each instance count (1..max)
+        instance_range = list(range(1, max_instances + 1))
+        bar_data = {ic: [] for ic in instance_range}  # {instance_count: [value_per_room_type]}
+        for rt in room_types_sorted:
+            counts = instance_dist[rt]
+            for ic in instance_range:
+                bar_data[ic].append(counts.get(ic, counts.get(str(ic), 0)))
+
+        # Pick a colormap with enough distinct colours
+        cmap = plt.cm.get_cmap('tab10', max(max_instances, 3))
+
+        x = np.arange(len(room_types_sorted))
+        bar_width = 0.6
+        bottom = np.zeros(len(room_types_sorted))
+
+        plt.figure(figsize=(max(10, len(room_types_sorted) * 1.2), 7))
+        for ic in instance_range:
+            values = np.array(bar_data[ic], dtype=float)
+            label = f'{ic}×' if ic > 1 else '1× (single)'
+            plt.bar(x, values, bar_width, bottom=bottom, label=label,
+                    color=cmap(ic - 1), edgecolor='white', linewidth=0.5)
+            # Annotate non-zero segments
+            for j, v in enumerate(values):
+                if v > 0:
+                    plt.text(x[j], bottom[j] + v / 2, f'{int(v)}',
+                             ha='center', va='center', fontsize=7, fontweight='bold')
+            bottom += values
+
+        # Total count label on top of each bar
+        for j, total in enumerate(bottom):
+            plt.text(x[j], total + max(bottom) * 0.01, f'{int(total)}',
+                     ha='center', va='bottom', fontsize=8, color='dimgray')
+
+        plt.xticks(x, [rt.capitalize() for rt in room_types_sorted], rotation=45, ha='right')
+        plt.xlabel('Room Type')
+        plt.ylabel('Number of Floorplans')
+        plt.title('Room Type Occurrence per Floorplan\n(how many floorplans contain this room type N times)')
+        plt.legend(title='Instances per flat', loc='upper right', fontsize=9)
+        plt.grid(True, alpha=0.25, axis='y')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, 'room_type_instance_distribution.png'), dpi=150)
+        plt.close()
+        print(f"Saved: room_type_instance_distribution.png")
+
     print(f"\nAll plots saved to: {plots_dir}")
 
 def search_by_room_size(json_path: Path, min_size: float, max_size: float, exclude_room_types: list = None) -> list:

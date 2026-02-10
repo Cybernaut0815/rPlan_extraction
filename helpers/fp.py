@@ -209,7 +209,17 @@ class Floorplan:
         orig_vals = self.image[ty, tx, 1]
         fillable = (orig_vals == interior_wall_val) | (orig_vals == interior_door_val)
         resized_fp = expand_rooms_right_down(resized_fp, fillable, num_rooms=12, max_passes=5)
-        return self._postprocess_and_mask(resized_fp)
+        
+        # Expand to 4 channels before postprocessing:
+        # resize_plan returns [room_type, per-type_instance, mask_placeholder]
+        # Convert to [room_type, placeholder, per-type_instance, mask]
+        resized_4ch = np.zeros((resized_fp.shape[0], resized_fp.shape[1], 4), dtype=resized_fp.dtype)
+        resized_4ch[:, :, 0] = resized_fp[:, :, 0]  # room type
+        resized_4ch[:, :, 1] = 0                      # will be filled by _postprocess_and_mask
+        resized_4ch[:, :, 2] = resized_fp[:, :, 1]   # per-type instance indices (from original ch2)
+        resized_4ch[:, :, 3] = 0                      # will be filled by _postprocess_and_mask
+        
+        return self._postprocess_and_mask(resized_4ch)
 
     def _extract_wall_skeleton(self):
         """
@@ -237,12 +247,18 @@ class Floorplan:
         
         return skeleton.astype(np.uint8)
 
-    def outline_based_resize(self, target_size, debug=False):
+    def outline_based_resize(self, target_size, buffer_distance=1.0, debug=False):
         """
         Resize floor plan using vector-based approach:
         1. Extract skeleton and find room regions
         2. Convert each region to a Shapely polygon  
         3. For each output pixel, check polygon containment
+        
+        Args:
+            target_size: Output size (target_size x target_size)
+            buffer_distance: Distance to expand room polygons outward (default 0.0).
+                            Set to 0 for polygons that exactly match regions.
+            debug: Show debug visualization
         """
         from shapely.geometry import Polygon as ShapelyPolygon, Point
         from shapely import prepare
@@ -269,49 +285,36 @@ class Floorplan:
             region_instances = self._distinct_rooms_channel[mask > 0]
             instance_value = np.bincount(region_instances[region_instances > 0]).argmax() if np.any(region_instances > 0) else 0
             
-            # Extract and simplify contour
-            contours, _ = cv2.findContours(mask * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Extract contour - use CHAIN_APPROX_NONE for full boundary coverage
+            contours, _ = cv2.findContours(mask * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
             if not contours:
                 continue
             contour = max(contours, key=cv2.contourArea)
-            simplified = cv2.approxPolyDP(contour, 2.0, True)
+            
+            # Light simplification to reduce points while keeping shape
+            # Use smaller epsilon for better accuracy
+            simplified = cv2.approxPolyDP(contour, 1.0, True)
             points = simplified.reshape(-1, 2).tolist()
             
             if len(points) < 3:
                 continue
             
-            # Straighten edges by snapping to axis-aligned with previous point
-            straightened = []
-            for i, (x, y) in enumerate(points):
-                prev_x, prev_y = points[(i - 1) % len(points)]
-                if abs(x - prev_x) < abs(y - prev_y):
-                    x = prev_x  # More vertical - align x
-                else:
-                    y = prev_y  # More horizontal - align y
-                straightened.append((x, y))
-            
-            # Remove duplicate consecutive points
-            clean_points = [straightened[0]]
-            for p in straightened[1:]:
-                if p != clean_points[-1]:
-                    clean_points.append(p)
-            
-            if len(clean_points) < 3:
-                continue
-            
-            # Create buffered polygon
+            # Create polygon directly from contour points (no manual straightening)
             try:
-                poly = ShapelyPolygon(clean_points)
+                poly = ShapelyPolygon(points)
                 if not poly.is_valid:
-                    poly = poly.buffer(0)
+                    poly = poly.buffer(0)  # Fix self-intersections
                 if poly.is_valid and poly.area > 0:
-                    poly = poly.buffer(3.0, cap_style=3, join_style=2)
+                    # Only apply buffer if requested (default 0 means no expansion)
+                    if buffer_distance > 0:
+                        poly = poly.buffer(buffer_distance, cap_style=3, join_style=2)
                     prepare(poly)
                     room_polygons.append((poly, room_value, instance_value))
             except:
                 continue
         
         # Sample grid points and check polygon containment
+        # Use covers() instead of contains() to include points on the boundary
         resized_room_map = np.full((target_size, target_size), external_area, dtype=np.uint8)
         resized_instance_map = np.zeros((target_size, target_size), dtype=np.uint8)
         scale_y = self.image.shape[0] / target_size
@@ -321,16 +324,22 @@ class Floorplan:
             for j in range(target_size):
                 sample_point = Point((j + 0.5) * scale_x, (i + 0.5) * scale_y)
                 for poly, room_value, instance_value in room_polygons:
-                    if poly.contains(sample_point):
+                    # covers() returns True for points inside OR on the boundary
+                    if poly.covers(sample_point):
                         resized_room_map[i, j] = room_value
                         resized_instance_map[i, j] = instance_value
                         break
         
-        # Build output array
-        resized_fp = np.zeros((target_size, target_size, 3), dtype=np.float32)
+        # Build output array (4 channels)
+        # ch0: room type (original values 0-11, 13)
+        # ch1: global instance ID (from connected components)
+        # ch2: per-type instance index (from original distinct_rooms_channel, 1-based)
+        # ch3: interior mask (1 = room, 0 = non-room/external)
+        resized_fp = np.zeros((target_size, target_size, 4), dtype=np.float32)
         resized_fp[:, :, 0] = resized_room_map
         resized_fp[:, :, 1] = self._label_instances(resized_room_map.astype(np.int32))
-        resized_fp[:, :, 2] = (resized_room_map <= 11).astype(np.uint8)
+        resized_fp[:, :, 2] = resized_instance_map  # original per-type instance indices
+        resized_fp[:, :, 3] = (resized_room_map <= 11).astype(np.uint8)
         
         if debug:
             self._debug_outline_resize(skeleton, labels, num_labels, room_polygons, resized_room_map)
@@ -974,11 +983,175 @@ class Floorplan:
         return inst
 
     def _postprocess_and_mask(self, resized_fp):
-        """Apply postprocessing and calculate mask based on final room grid."""
+        """Apply postprocessing and calculate mask based on final room grid.
+        
+        Expects and returns a 4-channel array:
+            ch0: room type, ch1: global instance ID, ch2: per-type instance idx, ch3: mask
+        """
         resized_fp[:, :, 0] = apply_room_postprocess(resized_fp[:, :, 0].astype(np.int32))
         resized_fp[:, :, 1] = self._label_instances(resized_fp[:, :, 0].astype(np.int32))
-        resized_fp[:, :, 2] = (resized_fp[:, :, 0] <= 11).astype(np.uint8)
+        # ch2 (per-type instance indices) is preserved from the resize step
+        resized_fp[:, :, 3] = (resized_fp[:, :, 0] <= 11).astype(np.uint8)
         return resized_fp
+
+    # ── Room remapping ────────────────────────────────────────────────
+
+    def remap_rooms(self, resized_fp, mode="instances"):
+        """
+        Remap a resized floorplan array into a single-channel color-coded image.
+        
+        Uses the 4-channel resized array produced by outline_based_resize / pixel_based_resize:
+            ch0: room type (original values 0-11, 13)
+            ch1: global instance ID
+            ch2: per-type instance index (1-based, 0 for non-room)
+            ch3: interior mask
+        
+        Args:
+            resized_fp: 4-channel array from a resize method
+            mode: One of:
+                - "types"       → 13 classes (one per room type, spread 0-255)
+                - "basic_types" → 15 classes (bathroom/second room split by instance)
+                - "instances"   → 35 classes (unique color per room_type × instance)
+        
+        Returns:
+            np.ndarray: Single-channel uint8 array with color-coded room values
+        """
+        room_channel = resized_fp[:, :, 0].astype(np.int32)
+        instance_channel = resized_fp[:, :, 2].astype(np.int32)
+        
+        remapped = np.zeros(room_channel.shape, dtype=np.uint8)
+        
+        if mode == "types":
+            num = self.info.num_room_types
+            for orig_val, new_val in self.info.room_type_remap.items():
+                visual_val = int(new_val * (255 / (num - 1)))
+                remapped[room_channel == orig_val] = visual_val
+        
+        elif mode == "basic_types":
+            BASIC_CLASS_MAP = {
+                0: 0, 1: 1, 2: 2,
+                3: (3, 4),        # bathroom 1 / 2
+                4: 5, 5: 6, 6: 7,
+                7: (8, 9),        # second room 1 / 2
+                8: 10,
+                9: 11,            # balcony (all instances share color)
+                10: 12, 11: 13, 13: 14,
+            }
+            num = self.info.num_basic_room_types
+            
+            def _val(cid):
+                return int(cid * (255 / (num - 1)))
+            
+            for orig_val, class_ids in BASIC_CLASS_MAP.items():
+                room_mask = (room_channel == orig_val)
+                if isinstance(class_ids, tuple):
+                    id_1, id_2 = class_ids
+                    mask_2 = room_mask & (instance_channel == 2)
+                    mask_1 = room_mask & ~mask_2
+                    remapped[mask_1] = _val(id_1)
+                    remapped[mask_2] = _val(id_2)
+                else:
+                    remapped[room_mask] = _val(class_ids)
+        
+        elif mode == "instances":
+            cmap = self.info.room_instance_color_map
+            max_inst = self.info.room_type_max_instances
+            remap = self.info.room_type_remap
+            remap_name = self.info.remap_to_name
+            
+            for orig_val, new_val in remap.items():
+                room_name = remap_name.get(new_val, "unknown")
+                mi = max_inst.get(room_name, 1)
+                room_mask = (room_channel == orig_val)
+                
+                # External area: instance_channel is 0, not instanced
+                if orig_val == 13:
+                    key = (new_val, 0)
+                    if key in cmap:
+                        remapped[room_mask] = cmap[key]
+                    continue
+                
+                for inst_id in range(mi):
+                    if mi == 1:
+                        inst_mask = room_mask & (instance_channel > 0)
+                    else:
+                        inst_mask = room_mask & (instance_channel == (inst_id + 1))
+                    key = (new_val, inst_id)
+                    if key in cmap:
+                        remapped[inst_mask] = cmap[key]
+        else:
+            raise ValueError(f"Unknown remap mode: {mode!r}. Use 'types', 'basic_types', or 'instances'.")
+        
+        return remapped
+
+    def create_exterior_mask(self, resized_fp):
+        """
+        Create an alpha mask from a resized floorplan array.
+        
+        Returns:
+            np.ndarray: uint8 array — 255 for interior, 0 for exterior
+        """
+        room_channel = resized_fp[:, :, 0].astype(np.int32)
+        exterior_mask = (room_channel == 13)
+        return np.where(exterior_mask, 0, 255).astype(np.uint8)
+
+    def create_daylight_mask(self, resized_fp):
+        """
+        Create a daylight-need mask from a resized floorplan array.
+        
+        Marks rooms that need daylight (based on info.remap_needs_daylight)
+        AND the immediately neighbouring exterior pixels — i.e. the building
+        perimeter positions where windows could or should be placed.
+        
+        Pixel values in the returned mask:
+            0   — not relevant (interior rooms that don't need light, or far exterior)
+            128 — exterior pixel adjacent to a daylight-needing room (potential window)
+            255 — room pixel that needs daylight
+        
+        Args:
+            resized_fp: 4-channel array from a resize method
+        
+        Returns:
+            np.ndarray: uint8 single-channel mask
+        """
+        room_channel = resized_fp[:, :, 0].astype(np.int32)
+        remap = self.info.room_type_remap
+        needs_daylight = self.info.remap_needs_daylight
+        external_area = 13
+
+        # 1. Build binary mask of rooms that need daylight
+        daylight_rooms = np.zeros(room_channel.shape, dtype=np.uint8)
+        for orig_val, remapped_val in remap.items():
+            if needs_daylight.get(remapped_val, False):
+                daylight_rooms[room_channel == orig_val] = 255
+
+        # 2. Dilate by 1 pixel (cross kernel: only up/down/left/right, no diagonals)
+        kernel = np.array([[0, 1, 0],
+                           [1, 1, 1],
+                           [0, 1, 0]], dtype=np.uint8)
+        dilated = cv2.dilate(daylight_rooms, kernel, iterations=1)
+
+        # 3. The exterior boundary ring = dilated pixels that are in the exterior
+        exterior_mask = (room_channel == external_area)
+        boundary_ring = (dilated > 0) & exterior_mask
+
+        # 4. Output only the exterior neighbour pixels (the dilated ring)
+        result = np.zeros(room_channel.shape, dtype=np.uint8)
+        result[boundary_ring] = 255
+
+        return result
+
+    def has_single_instances_only(self):
+        """
+        Check if this floorplan has at most one instance of each room type,
+        with exceptions for allowed multi-instance types (balcony, bathroom, second room).
+        """
+        allowed = self.info.basic_types_multi_instance_allowed
+        for room_type, count in self.room_types_count.items():
+            max_allowed = allowed.get(room_type, 1)
+            if count > max_allowed:
+                return False
+        return True
 
     ### here llm descriptions ###
     
@@ -1028,7 +1201,8 @@ class Floorplan:
             "dimensions": [resized_fp.shape[0], resized_fp.shape[1]],
             "functions": resized_fp[:,:,0].tolist(),
             "instances": resized_fp[:,:,1].tolist(),
-            "mask": resized_fp[:,:,2].tolist(),
+            "per_type_instances": resized_fp[:,:,2].tolist(),
+            "mask": resized_fp[:,:,3].tolist(),
             "graph": self.get_room_connectivity_matrix().tolist(),
             "nodes": nodes,
             "graph_string": graph_string,

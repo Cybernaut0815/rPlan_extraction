@@ -133,6 +133,63 @@
     "dining room": 2,
     "storage": 3
   },
+  "room_type_instance_distribution": {
+    "master room": {
+      "1": 78636,
+      "2": 875,
+      "3": 22,
+      "4": 1,
+      "5": 1
+    },
+    "bathroom": {
+      "1": 64458,
+      "2": 16080,
+      "3": 106
+    },
+    "living room": {
+      "1": 80787
+    },
+    "second room": {
+      "1": 54361,
+      "2": 21978,
+      "3": 543,
+      "4": 10
+    },
+    "kitchen": {
+      "1": 77478,
+      "2": 134
+    },
+    "balcony": {
+      "1": 49342,
+      "2": 17021,
+      "3": 597,
+      "4": 4
+    },
+    "child room": {
+      "1": 3821,
+      "2": 52,
+      "3": 1
+    },
+    "guest room": {
+      "1": 795,
+      "2": 28,
+      "3": 3
+    },
+    "study room": {
+      "1": 14936,
+      "2": 23,
+      "3": 1
+    },
+    "dining room": {
+      "1": 1309,
+      "2": 1
+    },
+    "storage": {
+      "1": 2438,
+      "2": 31,
+      "3": 1
+    }
+  },
   "connectivity_graphs": {
     "total_with_connectivity": 80787,
     "unique_graphs": 4656,

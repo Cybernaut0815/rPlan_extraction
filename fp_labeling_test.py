@@ -89,7 +89,7 @@ test_fp = Floorplan(random_path, wall_width=wall_width)
 size = 64
 
 resized_fp_pixels = test_fp.pixel_based_resize(size)
-resized_fp_outlines = test_fp.outline_based_resize(size)
+resized_fp_outlines = test_fp.outline_based_resize(size, buffer_distance=1.0)
 
 test_fp.draw_room_connectivity_on_plan()
 
@@ -120,13 +120,56 @@ from helpers.fp import Floorplan
 test_fp = Floorplan(os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)]), wall_width=wall_width)
 
 # Run with debug=True to see the skeleton
-resized = test_fp.outline_based_resize(32, debug=True)
+resized = test_fp.outline_based_resize(32, buffer_distance=1.0, debug=True)
 
 plt.figure(figsize=(6,6))
 plt.imshow(resized[:,:,0], cmap='tab20')
 plt.title('Resized Output')
 plt.axis('off')
 plt.show()
+
+
+# %%
+
+# Test daylight mask alongside remapped colour image
+import importlib
+import helpers.fp, helpers.info
+importlib.reload(helpers.fp)
+importlib.reload(helpers.info)
+from helpers.fp import Floorplan
+from helpers.info import Info
+import random as rand
+
+random_path = os.path.join(DATA_PATH, paths[rand.randint(0, len(paths)-1)])
+test_fp = Floorplan(random_path, wall_width=wall_width)
+
+size = 32
+resized = test_fp.outline_based_resize(size, buffer_distance=1.0)
+
+# Remap to colour-coded instances image
+remapped_img = test_fp.remap_rooms(resized, mode="basic_types")
+alpha_mask = test_fp.create_exterior_mask(resized)
+daylight_mask = test_fp.create_daylight_mask(resized)
+
+test_fp.draw_room_connectivity_on_plan()
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+
+# 1. Remapped room instances with colormap, exterior masked out
+masked_img = np.ma.masked_where(alpha_mask == 0, remapped_img)
+axes[0].imshow(masked_img, cmap='gist_ncar', vmin=0, vmax=255)
+axes[0].set_title('Remapped Instances')
+axes[0].axis('off')
+
+# 2. Daylight mask (dilated exterior neighbours only)
+axes[1].imshow(daylight_mask, cmap='hot', vmin=0, vmax=255)
+axes[1].set_title('Daylight Mask')
+axes[1].axis('off')
+
+plt.tight_layout()
+plt.show()
+
+print(f"Daylight boundary pixels: {(daylight_mask == 255).sum()}")
 
 
 
@@ -190,6 +233,9 @@ from helpers.dataset_viz import load_and_visualize_datapoint
 
 # Now visualize
 load_and_visualize_datapoint(9, OUTPUT_PATH)
+
+
+
 
 
 # %%
